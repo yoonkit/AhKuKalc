@@ -46,7 +46,7 @@ Input:
 Requirements
 1. Parse out the tokens of the string
 2. Translates the characters or words into numerical integer values
-boogi. If string evaluation is not given, then report it as -1
+3. If string evaluation is not given, then report it as -1
 
 Output:
 * A tuple representing:
