@@ -148,6 +148,7 @@ function updateWhatsApp()
             ykAlert("Needs Feedback: " + message )
         }
     }
+    oldtexts = texts
 }
 
 setInterval( function () { updateWhatsApp() }, 5000)
