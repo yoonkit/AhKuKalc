@@ -27,8 +27,6 @@ function getChatTitle()
 
     if (headers.length == 1)
     {
-        // await delay(5000)
-        //_3W2ap - span (individual)
         var divs = headers[0].getElementsByTagName("div")
         if (divs.length == 3)
         {
@@ -68,8 +66,10 @@ function ykAlert( msg, type=0 )
     return 0;
 }
 
+const reactionEmojis = ['👍','❤️','😂','😮','😢',"🙏","+"]
+
 const goodEmojis = { '❤️': true, '👍': true, '😍': true, '🥰': true, '🤟🏻': true,
-                    '😮':false, '😢': false, '🥵': false, '❌': false, '🫣': false }
+                    '😮':false, '😢': false, '🥵': false, '❌': false, '🫣': false, '🙏': false }
 
 function getDateTimeAuthorFromPrePlainText( preplain )
 {
@@ -101,31 +101,34 @@ function getChatTexts()
     var seltext = document.getElementsByClassName("_11JPr selectable-text")
     for (let text of seltext)
     {
-        if (text.classList.length > 5) continue
-        var message = text.textContent
-        var parent = text.parentElement.parentElement
-        var attribute = parent.attributes['data-pre-plain-text'].textContent // "[20:53, 31/07/2023] Wong Wei Yuen: "
-
-        var hasEmoji = false
-        var charEmoji = ""
-        var emoji = parent.parentElement.parentElement.parentElement.nextSibling
-        if (emoji != null)
+        try
         {
-            var imgs = emoji.getElementsByTagName('img')
-            if (imgs.length > 0)
+            if (text.classList.length > 5) continue
+            var message = text.textContent
+            var parent = text.parentElement.parentElement
+            var attribute = parent.attributes['data-pre-plain-text'].textContent // "[20:53, 31/07/2023] Wong Wei Yuen: "
+
+            var hasEmoji = false
+            var charEmoji = ""
+            var emoji = parent.parentElement.parentElement.parentElement.nextSibling
+            if (emoji != null)
             {
-                hasEmoji = true
-                charEmoji = imgs[0].alt
+                var imgs = emoji.getElementsByTagName('img')
+                if (imgs.length > 0)
+                {
+                    hasEmoji = true
+                    charEmoji = imgs[0].alt
+                }
             }
+
+            var [datetime, author] = getDateTimeAuthorFromPrePlainText( attribute )
+            var sentimentEmoji = goodEmojis[charEmoji]
+            let res = [datetime, author, message, hasEmoji, charEmoji, sentimentEmoji, text ]
+
+            result.push( res )
+        } catch(err) {
+            ykAlert( err.message + ": " + text )
         }
-
-        var [datetime, author] = getDateTimeAuthorFromPrePlainText( attribute )
-        var sentimentEmoji = goodEmojis[charEmoji]
-        let res = [datetime, author, message, hasEmoji, charEmoji, sentimentEmoji ]
-
-        ykAlert( res, -1)
-
-        result.push( res )
     }
     return result
 }
@@ -147,7 +150,7 @@ function clickSend(div)
         } else
         {
             div.focus()
-            document.execCommand('insertText', false, ' ' )
+            document.execCommand('insertText', false, ' ' ) // 230802 yky execCommand might get deprecated
 
         }
         //ykAlert( send )
@@ -166,9 +169,9 @@ function sendMessage( text )
     */
     var div = document.getElementsByClassName("to2l77zo gfz4du6o ag5g9lrv bze30y65 kao4egtt")[1]
     div.focus()
-    document.execCommand('insertText', false, text )
+    document.execCommand('insertText', false, text ) // 230802 yky execCommand might get deprecated
 
-    setTimeout( function () {clickSend(div)}, 500 )
+    setTimeout( function () { clickSend(div) }, 500 )
 }
 
 function simulateKeyPress(field, key)
@@ -185,29 +188,74 @@ function simulateKeyPress(field, key)
 }
 
 
+function clickEmoji( span, emoji )
+{
+    /* Reveals the available emojis and clicks on the appropriate one given the span of text
+     * 230802 yky Created
+     */
+    const mouseOverEvent = new MouseEvent('mouseover', { view: window, bubbles: true, cancelable: true } )
+    span.dispatchEvent(mouseOverEvent)
+    // pause
+    setTimeout( function () {clickEmoji_ClickGreyFace( span, emoji )}, 500 )
+
+    function clickEmoji_ClickGreyFace( span, emoji )
+    {
+        var div = span.parentElement.parentElement.parentElement
+        var emo = div.parentElement.nextSibling
+        var emoc = emo.firstChild.firstChild.firstChild
+        emoc.click()
+        // pause
+        setTimeout( function () {clickEmoji_ClickReaction( emoji )}, 500 )
+    }
+
+    function clickEmoji_ClickReaction( emoji )
+    {
+        /* Clicks on the revealed emojis available for the particular span
+         *    reaction-option-0 is thumbs up, 1= heart, 2=laugh
+         *       3 = surprised, 4=cry, 5=prayer
+         *       "show-more" is the plus
+         * 230802 yky Created
+        */
+        var emo = document.querySelector("[data-testid='reactions-option-"+emoji+"']").click()
+        return emo
+    }
+}
+
+var oldtitle = ""
 var oldtexts = []
 
 function updateWhatsApp()
 {
-    var [isGroup, titile, members] = getChatTitle()
+    var [isGroup, title, members] = getChatTitle()
     //ykAlert("update")
     var texts = getChatTexts()
-    //ykAlert("length: " + seltex.length)
-    if (texts.length != oldtexts.length)
+    var length = texts.length
+    try
     {
-        ykAlert("length: " + texts.length)
-        let last = texts[ texts.length -1]
-        let [datetime, author, message, hasEmoji, charEmoji, sentimentEmoji ] = last
-        if (!hasEmoji)
+        if (texts.length != oldtexts.length)
         {
-            ykAlert("Needs Feedback: " + message )
-            if ( message == "maths" )
+            ykAlert("length: " + texts.length)
+            let last = texts[ texts.length -1]
+            let [datetime, author, message, hasEmoji, charEmoji, sentimentEmoji, span ] = last
+
+            message = message.toLowerCase()
+            if (!hasEmoji)
             {
-                sendMessage( "5 + eight plus nine equals" )
+                ykAlert("Needs Feedback: " + message )
+                if ( message == "maths" )
+                {
+                    sendMessage( "5 + eight plus nine equals" )
+                } else if ( message == "laugh" )
+                {
+                    clickEmoji(span, 2)
+                }
             }
         }
+    } catch(err) {
+        ykAlert( err.message )
     }
     oldtexts = texts
+    oldtitle = title
 }
 
 setInterval( function () { updateWhatsApp() }, 5000)
