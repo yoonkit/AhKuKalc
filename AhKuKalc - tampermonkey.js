@@ -130,6 +130,61 @@ function getChatTexts()
     return result
 }
 
+function clickSend(div)
+{
+    /* Clicks the Send button if available
+     *   Usually called as a setTimeout function as the widget isnt displayed after the first text is entered into the textarea
+     * 230802 yky Created
+    */
+	var send = null
+    var i = 3
+    do {
+        let sends = document.getElementsByClassName("tvf2evcx oq44ahr5 lb5m6g5c svlsagor p2rjqpw5 epia9gcq")
+        if (sends.length > 0)
+        {
+            send = sends[0]
+            send.click()
+        } else
+        {
+            div.focus()
+            document.execCommand('insertText', false, ' ' )
+
+        }
+        //ykAlert( send )
+    } while ( (send == null) & (i-- > 0) )
+}
+
+function sendMessage( text )
+{
+    /* Updates the textarea for messages to be sent
+     *   Executes the send button
+     *   Problem with div textareas is that the <p> only appears when at least one character is input
+     *     Doesnt work by manipulating the innerHTML, appendChild, and textContent.
+     *     Seems to work with execCommand('insertText' .. ) however this will be deprecated soon.
+     *   Send button will only appear only a few milliseconds after the insertText. Needs a delay
+     * 230801 yky Created
+    */
+    var div = document.getElementsByClassName("to2l77zo gfz4du6o ag5g9lrv bze30y65 kao4egtt")[1]
+    div.focus()
+    document.execCommand('insertText', false, text )
+
+    setTimeout( function () {clickSend(div)}, 500 )
+}
+
+function simulateKeyPress(field, key)
+{
+    /* Keypresses on the elements
+     *   Unfortunately these events.isTrusted == false
+     * 230801 yky Created
+    */
+    const eventdown = new KeyboardEvent('keydown', { 'key': key });
+    const eventup = new KeyboardEvent('keyup', { 'key': key });
+    field.focus();
+    field.dispatchEvent(eventdown);
+    field.dispatchEvent(eventup);
+}
+
+
 var oldtexts = []
 
 function updateWhatsApp()
@@ -146,6 +201,10 @@ function updateWhatsApp()
         if (!hasEmoji)
         {
             ykAlert("Needs Feedback: " + message )
+            if ( message == "maths" )
+            {
+                sendMessage( "5 + eight plus nine equals" )
+            }
         }
     }
     oldtexts = texts
