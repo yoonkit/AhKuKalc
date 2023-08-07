@@ -422,7 +422,7 @@ function updateWhatsApp()
                         else
                         {
                             wrongi++
-                            if (wrongi > 3)
+                            if (wrongi > 4)
                             {
                                 ykAlert("consequtively wrong too many times. Asking another question")
                                 setTimeout( function () { sendMessage( generateEquation() ) }, clickDelay*3 )
