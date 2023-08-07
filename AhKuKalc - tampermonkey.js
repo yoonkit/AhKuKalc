@@ -79,17 +79,18 @@ function parseEquation( equation )
     return [isEquation, lhs, equalsval, equalsverified, rateComplex]
 }
 
+const elementpool = {0: 0, 1: 0, 2: 50, 3: 100, 4: 90, 5: 50, 6: 20, 7: 5, 8: 2}
 const numpool = {0: 1, 1 : 50, 2: 55, 3: 80, 4: 90, 5: 70, 6: 50, 7: 30, 8: 25, 9: 20, 10: 10, 11: 5}
 
-function generateNumPool()
+function generateStatPool(statpool)
 {
-    /* Creates a probability pool of numbers to be used for the addition
+    /* Creates a probability pool of numbers to be used for the addition and element numbers
      * 230802 yky Created
     */
     var pool = []
-    for (let i in numpool)
+    for (let i in statpool)
     {
-        for (let j = numpool[i]; j>0; j--) pool.push(parseInt(i))
+        for (let j = statpool[i]; j>0; j--) pool.push(parseInt(i))
     }
     return pool
 }
@@ -102,11 +103,14 @@ function generateEquation()
      *   Random words or numerical elements and operators
      *   Between 2 to 6 elements
      * 230802 yky Created
+     * 230807 yky Added stat weighted element numpool
     */
-    var numelements = Math.round( 2 + Math.random()*4 )
+    var pool = generateStatPool(numpool)
+    var elepool = generateStatPool(elementpool)
+
+    var numelements = elepool[ Math.floor( Math.random()*elepool.length ) ] //  Math.round( 2 + Math.random()*4 )
     var elements = []
     var lastelement = 0
-    var pool = generateNumPool()
 
     do
     {
@@ -360,6 +364,7 @@ var oldtitle = ""
 var oldtexts = []
 var repeat = 12
 var repeati = repeat
+var wrongi = 0
 
 function updateWhatsApp()
 {
@@ -373,7 +378,7 @@ function updateWhatsApp()
 		if (repeati == 0)
 		{ // 230807 yky  Rechecking after x times.
 			repeati = repeat
-			oldtexts = [] 
+			oldtexts = []
 		}
         if (texts.length != oldtexts.length)
         {
@@ -409,7 +414,21 @@ function updateWhatsApp()
                         else if (rate > 40) clickEmoji( span, 0 )
                         else if (rate >= 0) clickEmoji( span, 5 )
                         ykAlert( [isEquation, lhs, equalsval, equalsverified, rate] )
-                        if (rate > 0) setTimeout( function () { sendMessage( generateEquation() ) }, clickDelay*3 )
+                        if (rate > 0)
+                        {
+                            setTimeout( function () { sendMessage( generateEquation() ) }, clickDelay*3 )
+                            wrongi = 0
+                        }
+                        else
+                        {
+                            wrongi++
+                            if (wrongi > 3)
+                            {
+                                ykAlert("consequtively wrong too many times. Asking another question")
+                                setTimeout( function () { sendMessage( generateEquation() ) }, clickDelay*3 )
+                                wrongi = 0
+                            }
+                        }
                     }
                 }
             }
