@@ -316,6 +316,7 @@ function simulateKeyPress(field, key)
     field.dispatchEvent(eventup);
 }
 
+var clickDelay = 3500
 
 function clickEmoji( span, emoji )
 {
@@ -325,7 +326,7 @@ function clickEmoji( span, emoji )
     const mouseOverEvent = new MouseEvent('mouseover', { view: window, bubbles: true, cancelable: true } )
     span.dispatchEvent(mouseOverEvent)
     // pause
-    setTimeout( function () {clickEmoji_ClickGreyFace( span, emoji )}, 500 )
+    setTimeout( function () {clickEmoji_ClickGreyFace( span, emoji )}, clickDelay )
 
     function clickEmoji_ClickGreyFace( span, emoji )
     {
@@ -334,7 +335,7 @@ function clickEmoji( span, emoji )
         var emoc = emo.firstChild.firstChild.firstChild
         emoc.click()
         // pause
-        setTimeout( function () {clickEmoji_ClickReaction( emoji )}, 500 )
+        setTimeout( function () {clickEmoji_ClickReaction( emoji )}, clickDelay )
     }
 
     function clickEmoji_ClickReaction( emoji )
@@ -357,6 +358,8 @@ function checkAllChats()
 
 var oldtitle = ""
 var oldtexts = []
+var repeat = 12
+var repeati = repeat
 
 function updateWhatsApp()
 {
@@ -366,6 +369,12 @@ function updateWhatsApp()
     var length = texts.length
     try
     {
+		repeati--
+		if (repeati == 0)
+		{ // 230807 yky  Rechecking after x times.
+			repeati = repeat
+			oldtexts = [] 
+		}
         if (texts.length != oldtexts.length)
         {
             ykAlert("length: " + texts.length)
@@ -400,7 +409,7 @@ function updateWhatsApp()
                         else if (rate > 40) clickEmoji( span, 0 )
                         else if (rate >= 0) clickEmoji( span, 5 )
                         ykAlert( [isEquation, lhs, equalsval, equalsverified, rate] )
-                        if (rate > 0) setTimeout( function () { sendMessage( generateEquation() ) }, 5000 )
+                        if (rate > 0) setTimeout( function () { sendMessage( generateEquation() ) }, clickDelay*3 )
                     }
                 }
             }
