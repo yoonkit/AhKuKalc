@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WhatsApp Interface for AhKuKalc
 // @namespace    http://tampermonkey.net/
-// @version      0.2
+// @version      0.3
 // @description  Chatbot to provide simple addition problems and feedback for young brains
 // @author       Yoon-Kit Yong
 // @match        https://web.whatsapp.com/*
@@ -12,6 +12,21 @@
 // ==/UserScript==
 
 //const delay = ms => new Promise(res => setTimeout(res, ms));
+
+function ykAlert( msg, type=0 )
+{
+    /* Messages for debugging with varying degrees of reporting methods
+     *     -1 : Dont report
+     *      0 : console.log <Default>
+     *      1 : window.alert (very annoying)
+     * 230728 yky Created
+     */
+    if (type < 0) return type
+    else if (type == 1) window.alert( msg )
+    else console.log( msg );
+    return 0;
+}
+
 const numbers = { "zero" : 0, "one" : 1, "two": 2, "three": 3, "four": 4, "five":5, "six":6, "seven": 7, "eight":8,
                  "nine":9, "ten":10, "eleven":11, "twelve":12, "thirteen":13, "fourteen":14, "fifteen":15 }
 const operators = { "equals": "=", "equls": "=", "equal": "=", "plus": "+", "add": "+",
@@ -183,21 +198,6 @@ function getChatTitle()
     return [isGroup, title, members]
 }
 
-
-function ykAlert( msg, type=0 )
-{
-    /* Messages for debugging with varying degrees of reporting methods
-     *     -1 : Dont report
-     *      0 : console.log <Default>
-     *      1 : window.alert (very annoying)
-     * 230728 yky Created
-     */
-    if (type < 0) return type
-    else if (type == 1) window.alert( msg )
-    else console.log( msg );
-    return 0;
-}
-
 const reactionEmojis = ['👍','❤️','😂','😮','😢',"🙏","+"]
 
 const goodEmojis = { '❤️': true, '👍': true, '😍': true, '🥰': true, '🤟🏻': true,
@@ -228,6 +228,7 @@ function getChatTexts()
      *   Emoji - hasEmoji, charEmoji, isGoodEmoji
      * Returns the list of messages
      * 230731 yky Created
+     * 230812 yky the 'message-in' parentElement increased
     */
     var result = []
     var seltext = document.getElementsByClassName("_11JPr selectable-text")
@@ -238,8 +239,10 @@ function getChatTexts()
             if (span.classList.length > 5) continue
             var message = span.textContent
             var parent = span.parentElement.parentElement
-            var isIncoming = span.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.className.includes('message-in')
-            var attribute = parent.attributes['data-pre-plain-text'].textContent // "[20:53, 31/07/2023] Wong Wei Yuen: "
+            var isIncoming = span.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.className.includes('message-in')
+            var attribute = parent.attributes['data-pre-plain-text'] // "[20:53, 31/07/2023] Wong Wei Yuen: "
+            if (attribute == undefined) continue
+            attribute = attribute.textContent // "[20:53, 31/07/2023] Wong Wei Yuen: "
 
             var hasEmoji = false
             var charEmoji = ""
@@ -355,9 +358,75 @@ function clickEmoji( span, emoji )
     }
 }
 
-function checkAllChats()
+function eventFire(el, etype)
 {
-    var chatlist = document.querySelector("[aria-label='Chat list']")
+    /* Simulates an event on an element
+     *   Mainly to click on the chatlist on the left
+     *     https://stackoverflow.com/questions/58115835/chrome-console-click-not-working-on-chat-list-in-web-whatsapp
+     * 230812 yky  Created
+     */
+		var evt = document.createEvent("MouseEvents");
+		evt.initMouseEvent(etype, true, true, window,0, 0, 0, 0, 0, false, false, false, false, 0, null);
+		el.dispatchEvent(evt);
+}
+
+function isEquation( equation )
+{
+    // 230812 yky  Created. Simple Equation validator.
+
+    let hasEquals = (equation.indexOf("=") >= 0) || (equation.indexOf("equals") >= 0)
+    let hasPlus = (equation.indexOf("+") >= 0) || (equation.indexOf("plus") >= 0)
+    return hasEquals || hasPlus
+}
+
+function focusNewChat()
+{
+    /*  Cycles through potential Chats which need to be reviewed.
+     *       Deprioritizes "You sent / reacted" for groups
+     *  230812  yky  Created
+     */
+    var chats = document.querySelectorAll("[data-testid='cell-frame-container']")
+    var potentials = []
+    var priority = []
+
+    for ( let chat of chats )
+    {
+        let message = chat.querySelector("[data-testid='last-msg-status']")
+        if (message != null)
+        {
+            let msg = message.textContent
+            let isMe = (msg.indexOf("You:") >= 0) || (msg.indexOf("You reacted ") >= 0)
+            let isUnread = chat.className.indexOf("_1KV7I") >= 0
+
+            if (isEquation( msg ))
+            {
+                //ykAlert( "Slotting in :" + msg )
+                if ((isMe) && (!isUnread)) potentials.push( [chat, msg, isMe] )
+                else priority.push( [chat, msg, isMe] )
+            }
+        }
+    }
+
+    var selected = null
+
+    if (priority.length > 0)
+    {
+        selected = priority[ Math.floor( Math.random()*potentials.length ) ]
+    }
+    else if (potentials.length > 0)
+    {
+        selected = potentials[ Math.floor( Math.random()*potentials.length ) ]
+    }
+
+    //ykAlert( selected )
+
+    if (selected != null)
+    {
+        let [chat, msg, isMe] = selected
+        eventFire( chat, "mousedown" )
+        ykAlert( "clicking on: " + msg )
+    }
+    return [priority, potentials]
 }
 
 var oldtitle = ""
@@ -440,4 +509,6 @@ function updateWhatsApp()
     oldtitle = title
 }
 
+focusNewChat()
 setInterval( function () { updateWhatsApp() }, 5000)
+setInterval( function () { focusNewChat() }, 30000)
