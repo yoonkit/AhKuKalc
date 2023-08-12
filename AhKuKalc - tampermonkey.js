@@ -337,8 +337,11 @@ function clickEmoji( span, emoji )
 
     function clickEmoji_ClickGreyFace( span, emoji )
     {
+        /* Waits for the grey emoji to appear on hover, and clicks on it
+         * 230812 yky Modified - updated another div's parentElement before nextSibling
+        */
         var div = span.parentElement.parentElement.parentElement
-        var emo = div.parentElement.nextSibling
+        var emo = div.parentElement.parentElement.nextSibling
         var emoc = emo.firstChild.firstChild.firstChild
         emoc.click()
         // pause
@@ -383,6 +386,7 @@ function focusNewChat()
 {
     /*  Cycles through potential Chats which need to be reviewed.
      *       Deprioritizes "You sent / reacted" for groups
+     *       If it has a double check then isMe
      *  230812  yky  Created
      */
     var chats = document.querySelectorAll("[data-testid='cell-frame-container']")
@@ -395,7 +399,9 @@ function focusNewChat()
         if (message != null)
         {
             let msg = message.textContent
-            let isMe = (msg.indexOf("You:") >= 0) || (msg.indexOf("You reacted ") >= 0)
+            let isMe = (msg.indexOf("You:") == 0) || (msg.indexOf("You reacted ") == 0)
+            let hasDoubleCheck = chat.querySelector( "[data-icon='status-dblcheck']" ) != null
+            isMe = isMe || hasDoubleCheck
             let isUnread = chat.className.indexOf("_1KV7I") >= 0
 
             if (isEquation( msg ))
@@ -435,8 +441,14 @@ var repeat = 12
 var repeati = repeat
 var wrongi = 0
 
-function updateWhatsApp()
+function respondToChat()
 {
+    /*  Main response loop
+     *     Checks the Title
+     *     Gets a list of the messages
+     *     Reacts to the messages
+     *  Created 230702 Created
+     */
     var [isGroup, title, members] = getChatTitle()
     //ykAlert("update")
     var texts = getChatTexts()
@@ -509,6 +521,6 @@ function updateWhatsApp()
     oldtitle = title
 }
 
-focusNewChat()
-setInterval( function () { updateWhatsApp() }, 5000)
-setInterval( function () { focusNewChat() }, 30000)
+setTimeout( function () { focusNewChat() }, 10000 ) // 230812 yky Run this after loadup
+const responseInterval = setInterval( function () { respondToChat() }, 5000)
+const focusChatInterval = setInterval( function () { focusNewChat() }, 60000)
