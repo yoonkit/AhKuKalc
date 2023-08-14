@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WhatsApp Interface for AhKuKalc
 // @namespace    http://tampermonkey.net/
-// @version      0.3
+// @version      0.4
 // @description  Chatbot to provide simple addition problems and feedback for young brains
 // @author       Yoon-Kit Yong
 // @match        https://web.whatsapp.com/*
@@ -28,7 +28,8 @@ function ykAlert( msg, type=0 )
 }
 
 const numbers = { "zero" : 0, "one" : 1, "two": 2, "three": 3, "four": 4, "five":5, "six":6, "seven": 7, "eight":8,
-                 "nine":9, "ten":10, "eleven":11, "twelve":12, "thirteen":13, "fourteen":14, "fifteen":15 }
+                 "nine":9, "ten":10, "eleven":11, "twelve":12, "thirteen":13, "fourteen":14, "fifteen":15,
+                 "sixteen":16, "seventeen":17, "eighteen":18, "nineteen": 19, "twenty":20 }
 const operators = { "equals": "=", "equls": "=", "equal": "=", "plus": "+", "add": "+",
                    "subtract": "-", "minus": "-", "takeaway": "-", "multiply": "*", "times": "*", "divide": "/" }
 const flip = (data) => Object.fromEntries(
@@ -94,8 +95,8 @@ function parseEquation( equation )
     return [isEquation, lhs, equalsval, equalsverified, rateComplex]
 }
 
-const elementpool = {0: 0, 1: 0, 2: 50, 3: 100, 4: 90, 5: 50, 6: 20, 7: 5, 8: 2}
-const numpool = {0: 1, 1 : 50, 2: 55, 3: 80, 4: 90, 5: 70, 6: 50, 7: 30, 8: 25, 9: 20, 10: 10, 11: 5}
+const elementpool = {0: 0, 1: 0, 2: 50, 3: 100, 4: 120, 5: 60, 6: 20, 7: 3, 8: 2}
+const numpool = {0: 3, 1 : 50, 2: 70, 3: 80, 4: 90, 5: 90, 6: 80, 7: 40, 8: 40, 9: 10, 10: 5, 11: 1, 12: 3, 13: 3, 14: 1, 15: 1}
 
 function generateStatPool(statpool)
 {
@@ -110,7 +111,57 @@ function generateStatPool(statpool)
     return pool
 }
 
-function generateEquation()
+function generateStackedEquation( difficulty )
+{
+    /* Generates a set of easy equations without any carry over given the number of rows and cols
+     *  There is a problem with WhatsApp ARIA textarea - it doesnt allow text to be input directly, and strips off the \n newlines
+     * 230802 yky Created
+    */
+    var elements = []
+    if (difficulty == null) difficulty = 3
+    var rows = 2
+    var cols = 3
+    if (difficulty > 7)
+    {
+        rows = 4
+        cols = 6
+    } else if (difficulty > 3)
+    {
+        rows = 3
+        cols = 4
+    }
+
+    elements.length = rows
+    elements.fill(0)
+    var bar = "--"
+
+    for (let i = 0; i < cols; i++ )
+    {
+        let colsum = 10
+        let factor = 1
+        for (let j=0; j < rows; j++)
+        {
+            let element = Math.floor( Math.random()*colsum )
+            if ((i == 0) && (colsum > 1))
+            {
+                element = Math.floor(element * 0.4) + 1
+            }
+            elements[j] = elements[j]*10 + element
+            colsum -= element
+        }
+        bar += "-"
+    }
+    var results = ""
+    for (let i = 0; i < rows; i++ )
+    {
+        results += elements[i]
+        if (i < rows-1) results += " +\n"
+        else results += " =\n" + bar
+    }
+    return [elements, results]
+}
+
+function generateStringEquation( difficulty )
 {
     /* Creates a Question Equation to be solved
      *   Additions only
@@ -158,6 +209,13 @@ function generateEquation()
     for (let i of results) result += i + " "
 
     return result // [elements, results]
+}
+
+function generateEquation( difficulty )
+{
+    if (difficulty == null) difficulty = 3
+    if ( Math.random() > 0.3 ) return generateStackedEquation( difficulty )
+    else return generateStringEquation( difficulty )
 }
 
 var $ = window.jQuery; // 230729 yky Watch out for Apple problems with jQuery
@@ -521,6 +579,19 @@ function respondToChat()
     oldtitle = title
 }
 
-setTimeout( function () { focusNewChat() }, 10000 ) // 230812 yky Run this after loadup
-const responseInterval = setInterval( function () { respondToChat() }, 5000)
-const focusChatInterval = setInterval( function () { focusNewChat() }, 60000)
+
+function heartBeat()
+{
+    focusNewChat()
+    setTimeout( function () { respondToChat() }, 10000 )
+    setTimeout( function () { respondToChat() }, 28000 )
+    setTimeout( function () { respondToChat() }, 45000 )
+    if (window.heartBeatTimeout == null) ykAlert( 'Heart Stopped' )
+    else window.heartBeatTimeout = setTimeout( function () { heartBeat() }, 60000 )
+}
+
+window.heartBeatTimeout = setTimeout( function () { heartBeat() }, 10000 ) // 230812 yky Run this after loadup
+
+//setTimeout( function () { focusNewChat() }, 10000 ) // 230812 yky Run this after loadup
+//const responseInterval = setInterval( function () { respondToChat() }, 10000)
+//const focusChatInterval = setInterval( function () { focusNewChat() }, 60000)
