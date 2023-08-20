@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WhatsApp Interface for AhKuKalc
 // @namespace    http://tampermonkey.net/
-// @version      0.4
+// @version      0.41
 // @description  Chatbot to provide simple addition problems and feedback for young brains
 // @author       Yoon-Kit Yong
 // @match        https://web.whatsapp.com/*
@@ -11,21 +11,35 @@
 // @run-at       document-idle
 // ==/UserScript==
 
-//const delay = ms => new Promise(res => setTimeout(res, ms));
+var verbosity = 3
+document.verbosity = verbosity
 
 function ykAlert( msg, type=0 )
 {
     /* Messages for debugging with varying degrees of reporting methods
-     *     -1 : Dont report
+     *     -1 : Boldify
      *      0 : console.log <Default>
-     *      1 : window.alert (very annoying)
+     *      1 : light verbose
+     *      2 : medium verbose
+     *      3 : very verbose
+     *     10 : window.alert (very annoying)
      * 230728 yky Created
+	 * 230820 yky Modified - verbosity, caller function name, indent
      */
-    if (type < 0) return type
-    else if (type == 1) window.alert( msg )
-    else console.log( msg );
+    if (type < 0) console.log( '*** ' + msg + ' ***' )
+    else if (type == 10) window.alert( msg )
+    else if (type <= document.verbosity)
+    {
+        let fname = ""
+        let caller = ykAlert.caller
+        if (caller != null) fname = ' (' + caller.name + ') '
+        let spacer = "-".repeat(type*2) + ": "
+        console.log( spacer + msg + fname );
+    }
     return 0;
 }
+
+ykAlert('AhKuKalc Script loading ...', 2)
 
 const numbers = { "zero" : 0, "one" : 1, "two": 2, "three": 3, "four": 4, "five":5, "six":6, "seven": 7, "eight":8,
                  "nine":9, "ten":10, "eleven":11, "twelve":12, "thirteen":13, "fourteen":14, "fifteen":15,
@@ -92,7 +106,9 @@ function parseEquation( equation )
         else if (equalsverified > 8) rateComplex += 10
     }
 
-    return [isEquation, lhs, equalsval, equalsverified, rateComplex]
+    var res = [isEquation, lhs, equalsval, equalsverified, rateComplex]
+    ykAlert( res, 4 )
+    return res
 }
 
 const elementpool = {0: 0, 1: 0, 2: 50, 3: 100, 4: 120, 5: 60, 6: 20, 7: 3, 8: 2}
@@ -213,46 +229,58 @@ function generateStringEquation( difficulty )
 
 function generateEquation( difficulty )
 {
+	// 230820 yky Wrapper function to randomly pick different puzzles
+    var result = ""
+    var q = ""
     if (difficulty == null) difficulty = 3
-    if ( Math.random() > 0.3 ) return generateStackedEquation( difficulty )
-    else return generateStringEquation( difficulty )
+    if ( Math.random() > 0.9 ) [ q, result ] = generateStackedEquation( difficulty )
+    else result = generateStringEquation( difficulty )
+    return result
 }
 
 var $ = window.jQuery; // 230729 yky Watch out for Apple problems with jQuery
 var debug = -1; //230729 yky Set to -1 for production, 0 for debug
 
-//const getChatTitle = async () =>
 function getChatTitle()
 {
-    // 230731 yky Created
-    var headers = document.getElementsByClassName("_2au8k")
+    /* 230731 yky Created
+	 * 230820 yky Modified - capturing exceptions. just incase
+	 */
     var isGroup = false
     var title = ""
     var members = ""
 
-    if (headers.length == 1)
+    ykAlert( 'Getting Chat Title', 4 )
+    try
     {
-        var divs = headers[0].getElementsByTagName("div")
-        if (divs.length == 3)
+        var headers = document.getElementsByClassName("_2au8k")
+        if (headers.length == 1)
         {
-            isGroup = true
-            title = divs[1].textContent
-            members = divs[2].textContent
-            if (members == "click here for contact info")
+            var divs = headers[0].getElementsByTagName("div")
+            if (divs.length == 3)
             {
-                isGroup = false
-                members = ""
+                isGroup = true
+                title = divs[1].textContent
+                members = divs[2].textContent
+                if (members == "click here for contact info")
+                {
+                    isGroup = false
+                    members = ""
+                }
+                else if (members == "click here for group info")
+                {
+                    members = ""
+                }
             }
-            else if (members == "click here for group info")
+            else if (divs.length == 2)
             {
-                members = ""
+                title = divs[1].textContent
             }
         }
-        else if (divs.length == 2)
-        {
-            title = divs[1].textContent
-        }
+    } catch(err) {
+            ykAlert( err.message + ": " + title )
     }
+    ykAlert( 'Chat Title: ' + title, 2 )
     return [isGroup, title, members]
 }
 
@@ -289,7 +317,9 @@ function getChatTexts()
      * 230812 yky the 'message-in' parentElement increased
     */
     var result = []
+    ykAlert( 'Getting Messages', 4)
     var seltext = document.getElementsByClassName("_11JPr selectable-text")
+    ykAlert( 'Total Messages: ' + seltext.length, 3 )
     for (let span of seltext)
     {
         try
@@ -324,6 +354,7 @@ function getChatTexts()
             ykAlert( err.message + ": " + span )
         }
     }
+    ykAlert( 'Got Messages: ' + result.length, 2)
     return result
 }
 
@@ -333,6 +364,7 @@ function clickSend(div)
      *   Usually called as a setTimeout function as the widget isnt displayed after the first text is entered into the textarea
      * 230802 yky Created
     */
+    ykAlert( 'Clicking on Send', 4)
 	var send = null
     var i = 3
     do {
@@ -341,11 +373,11 @@ function clickSend(div)
         {
             send = sends[0]
             send.click()
+            ykAlert( 'Send clicked', 3)
         } else
         {
             div.focus()
             document.execCommand('insertText', false, ' ' ) // 230802 yky execCommand might get deprecated
-
         }
         //ykAlert( send )
     } while ( (send == null) & (i-- > 0) )
@@ -366,13 +398,29 @@ function sendMessage( text )
     document.execCommand('insertText', false, text ) // 230802 yky execCommand might get deprecated
 
     setTimeout( function () { clickSend(div) }, 500 )
+    ykAlert( 'Sending: ' + text, 2)
+}
+
+function fillTextBox( text )
+{
+	// 230820 yky Testing. Trying to inject these div/p/span into the textbox. Doesnt work
+    var parent = document.getElementsByClassName("g0rxnol2 ln8gz9je lexical-rich-text-input")[1]
+    var div = '<div class="to2l77zo gfz4du6o ag5g9lrv bze30y65 kao4egtt" contenteditable="true" role="textbox" spellcheck="true" title="Type a message" data-testid="conversation-compose-box-input" tabindex="10" data-tab="10" data-lexical-editor="true" style="max-height: 7.35em; min-height: 1.47em; user-select: text; white-space: pre-wrap; word-break: break-word;">'
+    var divspan = '<p class="selectable-text copyable-text iq0m558w g0rxnol2" style="text-indent: 0px;" dir="ltr"><span class="selectable-text copyable-text" data-lexical-text="true">'
+
+    var result = div
+    for (let i of text.split('\n') )
+    {
+        result += divspan + i + '</span></div>'
+    }
+    return result + "</div>"
 }
 
 function simulateKeyPress(field, key)
 {
     /* Keypresses on the elements
      *   Unfortunately these events.isTrusted == false
-     * 230801 yky Created
+     * 230801 yky Created. Doesnt Work.
     */
     const eventdown = new KeyboardEvent('keydown', { 'key': key });
     const eventup = new KeyboardEvent('keyup', { 'key': key });
@@ -381,13 +429,14 @@ function simulateKeyPress(field, key)
     field.dispatchEvent(eventup);
 }
 
-var clickDelay = 3500
+var clickDelay = 3000
 
 function clickEmoji( span, emoji )
 {
     /* Reveals the available emojis and clicks on the appropriate one given the span of text
      * 230802 yky Created
      */
+    ykAlert( 'Clicking on Emoji', 4)
     const mouseOverEvent = new MouseEvent('mouseover', { view: window, bubbles: true, cancelable: true } )
     span.dispatchEvent(mouseOverEvent)
     // pause
@@ -398,6 +447,7 @@ function clickEmoji( span, emoji )
         /* Waits for the grey emoji to appear on hover, and clicks on it
          * 230812 yky Modified - updated another div's parentElement before nextSibling
         */
+        ykAlert( 'Clicking on GreyFace', 5)
         var div = span.parentElement.parentElement.parentElement
         var emo = div.parentElement.parentElement.nextSibling
         var emoc = emo.firstChild.firstChild.firstChild
@@ -415,6 +465,7 @@ function clickEmoji( span, emoji )
          * 230802 yky Created
         */
         var emo = document.querySelector("[data-testid='reactions-option-"+emoji+"']").click()
+        ykAlert( 'Clicked on "' + emoji + '" emoji ' + emo, 3)
         return emo
     }
 }
@@ -424,7 +475,7 @@ function eventFire(el, etype)
     /* Simulates an event on an element
      *   Mainly to click on the chatlist on the left
      *     https://stackoverflow.com/questions/58115835/chrome-console-click-not-working-on-chat-list-in-web-whatsapp
-     * 230812 yky  Created
+     * 230812 yky  Created. Works!
      */
 		var evt = document.createEvent("MouseEvents");
 		evt.initMouseEvent(etype, true, true, window,0, 0, 0, 0, 0, false, false, false, false, 0, null);
@@ -451,6 +502,8 @@ function focusNewChat()
     var potentials = []
     var priority = []
 
+    ykAlert('Focusing chats: ' + chats.length,4)
+
     for ( let chat of chats )
     {
         let message = chat.querySelector("[data-testid='last-msg-status']")
@@ -473,22 +526,24 @@ function focusNewChat()
 
     var selected = null
 
+    ykAlert( 'Priority: ' + priority.length + ', Potentials: ' + potentials.length, 3)
+
     if (priority.length > 0)
     {
-        selected = priority[ Math.floor( Math.random()*potentials.length ) ]
+        selected = priority[ Math.floor( Math.random()*priority.length ) ]
     }
     else if (potentials.length > 0)
     {
         selected = potentials[ Math.floor( Math.random()*potentials.length ) ]
     }
 
-    //ykAlert( selected )
+    ykAlert( selected, 3 )
 
     if (selected != null)
     {
         let [chat, msg, isMe] = selected
+        ykAlert( "clicking on: '" + msg +"' ", 2 )
         eventFire( chat, "mousedown" )
-        ykAlert( "clicking on: " + msg )
     }
     return [priority, potentials]
 }
@@ -511,6 +566,8 @@ function respondToChat()
     //ykAlert("update")
     var texts = getChatTexts()
     var length = texts.length
+    var responded = ""
+    ykAlert( 'Trying to respond', 4 )
     try
     {
 		repeati--
@@ -521,14 +578,14 @@ function respondToChat()
 		}
         if (texts.length != oldtexts.length)
         {
-            ykAlert("length: " + texts.length)
+            ykAlert("Messages: " + texts.length, 3 )
             let last = texts[ texts.length -1]
             let [datetime, author, isIncoming, message, hasEmoji, charEmoji, sentimentEmoji, span ] = last
 
             let command = message.toLowerCase()
             if (!hasEmoji && isIncoming)
             {
-                ykAlert("Needs Feedback: " + message )
+                ykAlert("Needs Feedback: " + message, 0 )
                 if ( command == "maths" )
                 {
                     sendMessage( generateEquation() )
@@ -552,7 +609,7 @@ function respondToChat()
                         else if (rate > 95) clickEmoji( span, 1 )
                         else if (rate > 40) clickEmoji( span, 0 )
                         else if (rate >= 0) clickEmoji( span, 5 )
-                        ykAlert( [isEquation, lhs, equalsval, equalsverified, rate] )
+                        ykAlert( [isEquation, lhs, equalsval, equalsverified, rate], 5 )
                         if (rate > 0)
                         {
                             setTimeout( function () { sendMessage( generateEquation() ) }, clickDelay*3 )
@@ -563,11 +620,12 @@ function respondToChat()
                             wrongi++
                             if (wrongi > 4)
                             {
-                                ykAlert("consequtively wrong too many times. Asking another question")
+                                ykAlert("Consequtively wrong too many times. Asking another question", 0 )
                                 setTimeout( function () { sendMessage( generateEquation() ) }, clickDelay*3 )
                                 wrongi = 0
                             }
                         }
+                        responded = message
                     }
                 }
             }
@@ -577,20 +635,37 @@ function respondToChat()
     }
     oldtexts = texts
     oldtitle = title
+    if (responded != "") ykAlert('Responded to: ' + responded, 2)
+    else ykAlert( 'No message to respond', 2 )
 }
 
 
 function heartBeat()
 {
+	/* Heartbeat function to periodically check for new chats
+	 *    And prepare the potential responses every ~20 secs
+	 *    Calls itself after 1min. 
+	 *    Suicides if window.heartBeatTimeout == -1
+	 * 230815 Created yky 
+	 */
+    if (UW.heartBeatTimeout == -1)
+    {
+        ykAlert( 'Heart Stopped', 0 )
+        return 0
+    }
+    ykAlert('Heart Beat ... ', 4)
+    UW.heartBeatTimeout = setTimeout( function () { heartBeat() }, 60000 )
     focusNewChat()
-    setTimeout( function () { respondToChat() }, 10000 )
-    setTimeout( function () { respondToChat() }, 28000 )
+    setTimeout( function () { respondToChat() }, 7000 )
+    setTimeout( function () { respondToChat() }, 26000 )
     setTimeout( function () { respondToChat() }, 45000 )
-    if (window.heartBeatTimeout == null) ykAlert( 'Heart Stopped' )
-    else window.heartBeatTimeout = setTimeout( function () { heartBeat() }, 60000 )
 }
 
-window.heartBeatTimeout = setTimeout( function () { heartBeat() }, 10000 ) // 230812 yky Run this after loadup
+ykAlert('Starting AhKuKalc Heartbeat', 0)
+var UW = window // = unsafeWindow
+document.uw = UW
+var heartBeatTimeout = setTimeout( function () { heartBeat() }, 10000 ) // 230812 yky Run this after loadup
+UW.heartBeatTimeout = heartBeatTimeout
 
 //setTimeout( function () { focusNewChat() }, 10000 ) // 230812 yky Run this after loadup
 //const responseInterval = setInterval( function () { respondToChat() }, 10000)
