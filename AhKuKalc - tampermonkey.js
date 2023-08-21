@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WhatsApp Interface for AhKuKalc
 // @namespace    http://tampermonkey.net/
-// @version      0.42
+// @version      0.43
 // @description  Chatbot to provide simple addition problems and feedback for young brains
 // @author       Yoon-Kit Yong
 // @match        https://web.whatsapp.com/*
@@ -40,6 +40,8 @@ function ykAlert( msg, type=0 )
 }
 
 ykAlert('AhKuKalc Script loading ...', 2)
+
+/* =====================================  Mathematics functions ============================ */
 
 const numbers = { "zero" : 0, "one" : 1, "two": 2, "three": 3, "four": 4, "five":5, "six":6, "seven": 7, "eight":8,
                  "nine":9, "ten":10, "eleven":11, "twelve":12, "thirteen":13, "fourteen":14, "fifteen":15,
@@ -132,19 +134,32 @@ function generateStackedEquation( difficulty )
     /* Generates a set of easy equations without any carry over given the number of rows and cols
      *  There is a problem with WhatsApp ARIA textarea - it doesnt allow text to be input directly, and strips off the \n newlines
      * 230802 yky Created
+     * 230821 yky Added difficulty settings - adds columns and rows
     */
     var elements = []
     if (difficulty == null) difficulty = 3
     var rows = 2
     var cols = 3
-    if (difficulty > 7)
-    {
-        rows = 4
-        cols = 6
-    } else if (difficulty > 3)
+    if (difficulty > 50)
     {
         rows = 3
         cols = 4
+    } else if (difficulty > 40)
+    {
+        rows = 3
+        cols = 3
+    } else if (difficulty > 30)
+    {
+        rows = 2
+        cols = 5
+    } else if (difficulty > 20)
+    {
+        rows = 2
+        cols = 4
+    } else if (difficulty > 10)
+    {
+        rows = 2
+        cols = 3
     }
 
     elements.length = rows
@@ -186,17 +201,27 @@ function generateStringEquation( difficulty )
      *   Between 2 to 6 elements
      * 230802 yky Created
      * 230807 yky Added stat weighted element numpool
+     * 230821 yky Added difficulty settings - increases values and element nums
     */
     var pool = generateStatPool(numpool)
     var elepool = generateStatPool(elementpool)
 
-    var numelements = elepool[ Math.floor( Math.random()*elepool.length ) ] //  Math.round( 2 + Math.random()*4 )
+    var modval, modele
+
+    if (difficulty == null)   { modval = 0; modele = 0 }
+    else if (difficulty > 50) { modval = 5; modele = 2 }
+    else if (difficulty > 30) { modval = 3; modele = 1 }
+    else if (difficulty > 20) { modval = 2; modele = 1 }
+    else if (difficulty > 10) { modval = 1; modele = 0 }
+    else { modval = 0; modele = 0 }
+
+    var numelements = elepool[ Math.floor( Math.random()*elepool.length ) ] + modele //  Math.round( 2 + Math.random()*4 )
     var elements = []
     var lastelement = 0
 
     do
     {
-        let newelement = pool[ Math.floor( Math.random()*pool.length ) ]
+        let newelement = pool[ Math.floor( Math.random()*pool.length ) ] + modval
 
         if (newelement != lastelement)
         {
@@ -237,10 +262,12 @@ function generateEquation( difficulty )
     else if (difficulty < 50) currentdifficulty--
     if (difficulty == null) currentdifficulty = 3
 
-    if ( Math.random() > 0.9 ) [ q, result ] = generateStackedEquation( currentdifficulty )
+    if ( Math.random() > 0.8 ) [ q, result ] = generateStackedEquation( currentdifficulty )
     else result = generateStringEquation( currentdifficulty )
     return result
 }
+
+/* =====================================    UI jQuery functions ============================ */
 
 var $ = window.jQuery; // 230729 yky Watch out for Apple problems with jQuery
 var debug = -1; //230729 yky Set to -1 for production, 0 for debug
@@ -344,7 +371,6 @@ function getChatTexts()
             if (span.classList.length > 5) continue
             var message = span.textContent
             ykAlert('Parsing ' + message, 5)
-            //var isIncoming = span.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.className.includes('message-in')
             var grandparent = getParentWithClass( span, 'message-in' )
             var isIncoming = grandparent != null
 
@@ -355,7 +381,6 @@ function getChatTexts()
 
             var hasEmoji = false
             var charEmoji = ""
-            //var emoji = parent.parentElement.parentElement.parentElement.nextSibling
             var emoji = null
             if (grandparent != null) emoji = grandparent.querySelector('[data-testid="reaction-bubble"]')
             if (emoji != null)
@@ -576,8 +601,7 @@ function focusNewChat()
     return [priority, potentials]
 }
 
-var oldtitle = ""
-var oldtexts = []
+/* ===================================== Reaction functions ============================ */
 
 function respondToChat()
 {
@@ -647,6 +671,7 @@ function respondToChat()
                         {
                             if (equalsval == equalsverified) rate = rateComplex
                             else rate = -10
+                            currentdifficulty -= 3
                         }
                         ykAlert( 'Rating response: ' + rate + ' :' + [isEquation, lhs, equalsval, equalsverified], 5 )
                         if (rate < -50) clickEmoji( span, 4 )
@@ -721,7 +746,3 @@ var UW = window // = unsafeWindow
 document.uw = UW
 var heartBeatTimeout = setTimeout( function () { heartBeat() }, 10000 ) // 230812 yky Run this after loadup
 UW.heartBeatTimeout = heartBeatTimeout
-
-//setTimeout( function () { focusNewChat() }, 10000 ) // 230812 yky Run this after loadup
-//const responseInterval = setInterval( function () { respondToChat() }, 10000)
-//const focusChatInterval = setInterval( function () { focusNewChat() }, 60000)
