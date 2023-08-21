@@ -227,14 +227,18 @@ function generateStringEquation( difficulty )
     return result // [elements, results]
 }
 
+var currentdifficulty = 3
 function generateEquation( difficulty )
 {
 	// 230820 yky Wrapper function to randomly pick different puzzles
     var result = ""
     var q = ""
-    if (difficulty == null) difficulty = 3
-    if ( Math.random() > 0.9 ) [ q, result ] = generateStackedEquation( difficulty )
-    else result = generateStringEquation( difficulty )
+    if (difficulty > 50) currentdifficulty++
+    else if (difficulty < 50) currentdifficulty--
+    if (difficulty == null) currentdifficulty = 3
+
+    if ( Math.random() > 0.9 ) [ q, result ] = generateStackedEquation( currentdifficulty )
+    else result = generateStringEquation( currentdifficulty )
     return result
 }
 
@@ -566,7 +570,7 @@ function focusNewChat()
     if (selected != null)
     {
         let [chat, msg, isMe] = selected
-        ykAlert( "clicking on: '" + msg +"' ", 2 )
+        ykAlert( "clicking on: '" + msg +"' ", 0 )
         eventFire( chat, "mousedown" )
     }
     return [priority, potentials]
@@ -574,101 +578,16 @@ function focusNewChat()
 
 var oldtitle = ""
 var oldtexts = []
-var repeat = 12
-var repeati = repeat
-var wrongi = 0
 
-function respondToChatOld()
-{
-    /*  Main response loop
-     *     Checks the Title
-     *     Gets a list of the messages
-     *     Reacts to the messages
-     *  Created 230702 Created
-     */
-    var [isGroup, title, members] = getChatTitle()
-    //ykAlert("update")
-    var texts = getChatTexts()
-    var length = texts.length
-    var responded = ""
-    ykAlert( 'Trying to respond', 4 )
-    try
-    {
-		repeati--
-		if (repeati == 0)
-		{ // 230807 yky  Rechecking after x times.
-			repeati = repeat
-			oldtexts = []
-		}
-        if (texts.length != oldtexts.length)
-        {
-            ykAlert("Messages: " + texts.length, 3 )
-            let last = texts[ texts.length -1]
-            let [datetime, author, isIncoming, message, hasEmoji, charEmoji, sentimentEmoji, span ] = last
-
-            let command = message.toLowerCase()
-            if (!hasEmoji && isIncoming)
-            {
-                ykAlert("Needs Feedback: " + message, 0 )
-                if ( command == "maths" )
-                {
-                    sendMessage( generateEquation() )
-                } else if ( command == "laugh" )
-                {
-                    clickEmoji(span, 2)
-                }
-                else
-                {
-                    var [isEquation, lhs, equalsval, equalsverified, rateComplex] = parseEquation(message)
-                    if (isEquation)
-                    {
-                        let rate = -100
-                        if (!isNaN(equalsval))
-                        {
-                            if (equalsval == equalsverified) rate = rateComplex
-                            else rate = -10
-                        }
-                        if (rate < -50) clickEmoji( span, 4 )
-                        else if (rate < 0) clickEmoji( span, 3 )
-                        else if (rate > 95) clickEmoji( span, 1 )
-                        else if (rate > 40) clickEmoji( span, 0 )
-                        else if (rate >= 0) clickEmoji( span, 5 )
-                        ykAlert( [isEquation, lhs, equalsval, equalsverified, rate], 5 )
-                        if (rate > 0)
-                        {
-                            setTimeout( function () { sendMessage( generateEquation() ) }, clickDelay*3 )
-                            wrongi = 0
-                        }
-                        else
-                        {
-                            wrongi++
-                            if (wrongi > 4)
-                            {
-                                ykAlert("Consequtively wrong too many times. Asking another question", 0 )
-                                setTimeout( function () { sendMessage( generateEquation() ) }, clickDelay*3 )
-                                wrongi = 0
-                            }
-                        }
-                        responded = message
-                    }
-                }
-            }
-        }
-    } catch(err) {
-        ykAlert( err.message )
-    }
-    oldtexts = texts
-    oldtitle = title
-    if (responded != "") ykAlert('Responded to: ' + responded, 2)
-    else ykAlert( 'No message to respond', 2 )
-}
 function respondToChat()
 {
     /*  Main response loop
      *     Checks the Title
      *     Gets a list of the messages
      *     Reacts to the messages
-     *  Created 230702 Created
+     *     Checks if there are already responses, emojis etc.
+     *  230702 yky Created
+     *  230821 yky Modified = restructured to make it more robust
      */
     var texts = getChatTexts()
     var length = texts.length
@@ -682,20 +601,28 @@ function respondToChat()
         var hasResponded = false
         var isLastResponseMine = false
         var lastIncomingText = null
-        for (let i = length-1; i--; i >=0) // Loop to get incoming messages and status
+        var numBarriers = 1
+        for (let i = length-1; i >=0; i--) // Loop to get incoming messages and status
         {
             let last = texts[ i ]
             let [datetime, author, isIncoming, message, hasEmoji, charEmoji, sentimentEmoji, span ] = last
+            ykAlert( 'Last Msg: ' + message, 4)
             if (isIncoming)
             {
                 if (lastIncomingText == null) lastIncomingText = last // Save this as the one to respond to
-                incomingTexts.push(last) // Store in the list of incoming.
+                if (numBarriers > 0)
+                {
+                    incomingTexts.push(last) // Store in the list of incoming.
+                    ykAlert( 'Inserting Incoming ' + message, 5)
+                }
             }
             else // (!isIncoming)
             {
                 if (hasResponded || isLastResponseMine) break // Quit the loop if we have already given two responses.
                 if (i == (length-1)) isLastResponseMine = true
+                else numBarriers--
                 hasResponded = true // Setting hasResponded for the first time to true
+                ykAlert( 'Responded ' , 5)
             }
         }
         ykAlert( 'Found ' + incomingTexts.length + ' texts to reply to', 3)
@@ -704,7 +631,7 @@ function respondToChat()
             let [datetime, author, isIncoming, message, hasEmoji, charEmoji, sentimentEmoji, span ] = lastIncomingText
             let command = message.toLowerCase()
 
-            ykAlert("Needs Feedback: " + message, 0 )
+            ykAlert("InMessage: " + message + ', hasResponded: ' + isLastResponseMine + ', emoji: ' + hasEmoji, 0 )
             if ( command == "maths" ) sendMessage( generateEquation() )
             else if ( command == "laugh" ) clickEmoji(span, 2)
             else
@@ -728,18 +655,21 @@ function respondToChat()
                         else if (rate > 40) clickEmoji( span, 0 )
                         else if (rate >= 0) clickEmoji( span, 5 )
 
-                        if (rate > 0)
+                        if (!isLastResponseMine)
                         {
-                            ykAlert('Got the answer right, creating a new puzzle', 1)
-                            responded = 'Correct! ' + message
-                            setTimeout( function () { sendMessage( generateEquation(100) ) }, clickDelay*3 )
-                        } else // wrong answer.
-                        {
-                            if ( incomingTexts.length >= 3 )
+                            if (rate > 0)
                             {
-                                ykAlert( 'Tried answering 3 times. Giving another puzzle', 0 )
-                                responded = "Try a new one"
-                                sendMessage( generateEquation(-100) )
+                                ykAlert('Got the answer right, creating a new puzzle', 1)
+                                responded = 'Correct! ' + message
+                                setTimeout( function () { sendMessage( generateEquation(100) ) }, clickDelay*3 )
+                            } else // wrong answer.
+                            {
+                                if ( incomingTexts.length > 3 )
+                                {
+                                    ykAlert( 'Tried answering 3 times. Giving another puzzle', 0 )
+                                    responded = "Try a new one"
+                                    sendMessage( generateEquation(-100) )
+                                }
                             }
                         }
 
@@ -749,7 +679,7 @@ function respondToChat()
                         {
                             ykAlert('Reacted, but no response', 1)
                             responded = "Giving a new one"
-                            sendMessage( generateEquation() )
+                            sendMessage( generateEquation(100) )
                         }
                     }
                 } // end of isEquation
@@ -761,6 +691,8 @@ function respondToChat()
     }
     if (responded != "") ykAlert('Responded with: ' + responded, 2)
     else ykAlert( 'No message to respond', 2 )
+
+    return [ hasResponded, isLastResponseMine, lastIncomingText, responded, incomingTexts, texts]
 }
 
 function heartBeat()
