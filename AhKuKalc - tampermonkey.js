@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WhatsApp Interface for AhKuKalc
 // @namespace    http://tampermonkey.net/
-// @version      0.41
+// @version      0.42
 // @description  Chatbot to provide simple addition problems and feedback for young brains
 // @author       Yoon-Kit Yong
 // @match        https://web.whatsapp.com/*
@@ -305,6 +305,19 @@ function getDateTimeAuthorFromPrePlainText( preplain )
     return [ datetime, authorstr ]
 }
 
+function getParentWithClass(element, classname)
+{
+    /* Wrote this because WhatsApp keeps changing the parent depth of its divs
+     * Traversers up the hierarchy to find the parent class name
+     * 230821 yky Created
+     */
+    //ykAlert( element.className )
+    let parent = element.parentElement
+    if (parent == null) return null
+    else if (parent.className.indexOf(classname) >= 0) return parent
+    else return getParentWithClass(parent, classname)
+}
+
 function getChatTexts()
 {
     /* Scans the current page for the messages
@@ -326,15 +339,21 @@ function getChatTexts()
         {
             if (span.classList.length > 5) continue
             var message = span.textContent
+            ykAlert('Parsing ' + message, 5)
+            //var isIncoming = span.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.className.includes('message-in')
+            var grandparent = getParentWithClass( span, 'message-in' )
+            var isIncoming = grandparent != null
+
             var parent = span.parentElement.parentElement
-            var isIncoming = span.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.className.includes('message-in')
             var attribute = parent.attributes['data-pre-plain-text'] // "[20:53, 31/07/2023] Wong Wei Yuen: "
             if (attribute == undefined) continue
             attribute = attribute.textContent // "[20:53, 31/07/2023] Wong Wei Yuen: "
 
             var hasEmoji = false
             var charEmoji = ""
-            var emoji = parent.parentElement.parentElement.parentElement.nextSibling
+            //var emoji = parent.parentElement.parentElement.parentElement.nextSibling
+            var emoji = null
+            if (grandparent != null) emoji = grandparent.querySelector('[data-testid="reaction-bubble"]')
             if (emoji != null)
             {
                 var imgs = emoji.getElementsByTagName('img')
@@ -355,6 +374,7 @@ function getChatTexts()
         }
     }
     ykAlert( 'Got Messages: ' + result.length, 2)
+    document.textMessages = result
     return result
 }
 
@@ -446,12 +466,16 @@ function clickEmoji( span, emoji )
     {
         /* Waits for the grey emoji to appear on hover, and clicks on it
          * 230812 yky Modified - updated another div's parentElement before nextSibling
+         * 230821 yky Modified - using classnames to locate the grandparent and button
         */
         ykAlert( 'Clicking on GreyFace', 5)
-        var div = span.parentElement.parentElement.parentElement
-        var emo = div.parentElement.parentElement.nextSibling
-        var emoc = emo.firstChild.firstChild.firstChild
-        emoc.click()
+        //var div = span.parentElement.parentElement.parentElement
+        //var emo = div.parentElement.parentElement.nextSibling
+        //var emoc = emo.firstChild.firstChild.firstChild
+
+        var grandparent = getParentWithClass( span, 'UzMP7' )
+        var button = grandparent.querySelector('[data-testid="reaction-entry-point"]')
+        button.click()
         // pause
         setTimeout( function () {clickEmoji_ClickReaction( emoji )}, clickDelay )
     }
@@ -518,7 +542,7 @@ function focusNewChat()
             if (isEquation( msg ))
             {
                 //ykAlert( "Slotting in :" + msg )
-                if ((isMe) && (!isUnread)) potentials.push( [chat, msg, isMe] )
+                if ((isMe) || (!isUnread)) potentials.push( [chat, msg, isMe] )
                 else priority.push( [chat, msg, isMe] )
             }
         }
@@ -554,7 +578,7 @@ var repeat = 12
 var repeati = repeat
 var wrongi = 0
 
-function respondToChat()
+function respondToChatOld()
 {
     /*  Main response loop
      *     Checks the Title
@@ -638,15 +662,114 @@ function respondToChat()
     if (responded != "") ykAlert('Responded to: ' + responded, 2)
     else ykAlert( 'No message to respond', 2 )
 }
+function respondToChat()
+{
+    /*  Main response loop
+     *     Checks the Title
+     *     Gets a list of the messages
+     *     Reacts to the messages
+     *  Created 230702 Created
+     */
+    var texts = getChatTexts()
+    var length = texts.length
+    var responded = ""
+    ykAlert( 'Trying to respond to ' + length + ' messages ', 4 )
+    try
+    {
+        ykAlert("Messages: " + texts.length, 3 )
 
+        var incomingTexts = []
+        var hasResponded = false
+        var isLastResponseMine = false
+        var lastIncomingText = null
+        for (let i = length-1; i--; i >=0) // Loop to get incoming messages and status
+        {
+            let last = texts[ i ]
+            let [datetime, author, isIncoming, message, hasEmoji, charEmoji, sentimentEmoji, span ] = last
+            if (isIncoming)
+            {
+                if (lastIncomingText == null) lastIncomingText = last // Save this as the one to respond to
+                incomingTexts.push(last) // Store in the list of incoming.
+            }
+            else // (!isIncoming)
+            {
+                if (hasResponded || isLastResponseMine) break // Quit the loop if we have already given two responses.
+                if (i == (length-1)) isLastResponseMine = true
+                hasResponded = true // Setting hasResponded for the first time to true
+            }
+        }
+        ykAlert( 'Found ' + incomingTexts.length + ' texts to reply to', 3)
+        if (lastIncomingText != null)
+        {
+            let [datetime, author, isIncoming, message, hasEmoji, charEmoji, sentimentEmoji, span ] = lastIncomingText
+            let command = message.toLowerCase()
+
+            ykAlert("Needs Feedback: " + message, 0 )
+            if ( command == "maths" ) sendMessage( generateEquation() )
+            else if ( command == "laugh" ) clickEmoji(span, 2)
+            else
+            {
+                var [isEquation, lhs, equalsval, equalsverified, rateComplex] = parseEquation(message)
+                if (isEquation)
+                {
+                    if (!hasEmoji)
+                    {
+
+                        let rate = -100
+                        if (!isNaN(equalsval))
+                        {
+                            if (equalsval == equalsverified) rate = rateComplex
+                            else rate = -10
+                        }
+                        ykAlert( 'Rating response: ' + rate + ' :' + [isEquation, lhs, equalsval, equalsverified], 5 )
+                        if (rate < -50) clickEmoji( span, 4 )
+                        else if (rate < 0) clickEmoji( span, 3 )
+                        else if (rate > 95) clickEmoji( span, 1 )
+                        else if (rate > 40) clickEmoji( span, 0 )
+                        else if (rate >= 0) clickEmoji( span, 5 )
+
+                        if (rate > 0)
+                        {
+                            ykAlert('Got the answer right, creating a new puzzle', 1)
+                            responded = 'Correct! ' + message
+                            setTimeout( function () { sendMessage( generateEquation(100) ) }, clickDelay*3 )
+                        } else // wrong answer.
+                        {
+                            if ( incomingTexts.length >= 3 )
+                            {
+                                ykAlert( 'Tried answering 3 times. Giving another puzzle', 0 )
+                                responded = "Try a new one"
+                                sendMessage( generateEquation(-100) )
+                            }
+                        }
+
+                    } else // Has Emoji
+                    {
+                        if ((equalsval == equalsverified) && !isLastResponseMine)
+                        {
+                            ykAlert('Reacted, but no response', 1)
+                            responded = "Giving a new one"
+                            sendMessage( generateEquation() )
+                        }
+                    }
+                } // end of isEquation
+            }
+        }
+
+    } catch(err) {
+        ykAlert( err.message, -1 )
+    }
+    if (responded != "") ykAlert('Responded with: ' + responded, 2)
+    else ykAlert( 'No message to respond', 2 )
+}
 
 function heartBeat()
 {
 	/* Heartbeat function to periodically check for new chats
 	 *    And prepare the potential responses every ~20 secs
-	 *    Calls itself after 1min. 
+	 *    Calls itself after 1min.
 	 *    Suicides if window.heartBeatTimeout == -1
-	 * 230815 Created yky 
+	 * 230815 Created yky
 	 */
     if (UW.heartBeatTimeout == -1)
     {
