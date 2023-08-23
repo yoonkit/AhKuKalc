@@ -486,49 +486,6 @@ function simulateKeyPress(field, key)
 
 var clickDelay = 2000
 
-function clickEmojiOld( span, emoji )
-{
-    /* Reveals the available emojis and clicks on the appropriate one given the span of text
-     * 230802 yky Created
-     */
-    ykAlert( 'Clicking on Emoji', 4)
-    const mouseOverEvent = new MouseEvent('mouseover', { view: window, bubbles: true, cancelable: true } )
-    span.dispatchEvent(mouseOverEvent)
-    // pause
-    setTimeout( function () {clickEmoji_ClickGreyFace( span, emoji )}, clickDelay )
-
-    function clickEmoji_ClickGreyFace( span, emoji )
-    {
-        /* Waits for the grey emoji to appear on hover, and clicks on it
-         * 230812 yky Modified - updated another div's parentElement before nextSibling
-         * 230821 yky Modified - using classnames to locate the grandparent and button
-        */
-        ykAlert( 'Clicking on GreyFace', 5)
-        //var div = span.parentElement.parentElement.parentElement
-        //var emo = div.parentElement.parentElement.nextSibling
-        //var emoc = emo.firstChild.firstChild.firstChild
-
-        var grandparent = getParentWithClass( span, 'UzMP7' )
-        var button = grandparent.querySelector('[data-testid="reaction-entry-point"]')
-        button.click()
-        // pause
-        setTimeout( function () {clickEmoji_ClickReaction( emoji )}, clickDelay )
-    }
-
-    function clickEmoji_ClickReaction( emoji )
-    {
-        /* Clicks on the revealed emojis available for the particular span
-         *    reaction-option-0 is thumbs up, 1= heart, 2=laugh
-         *       3 = surprised, 4=cry, 5=prayer
-         *       "show-more" is the plus
-         * 230802 yky Created
-        */
-        var emo = document.querySelector("[data-testid='reactions-option-"+emoji+"']").click()
-        ykAlert( 'Clicked on "' + emoji + '" emoji ' + emo, 3)
-        return emo
-    }
-}
-
 function clickEmoji( span, score )
 {
     /* Reveals the available emojis and clicks on the appropriate one given the span of text
@@ -553,7 +510,7 @@ function clickEmoji( span, score )
     const mouseOverEvent = new MouseEvent('mouseover', { view: window, bubbles: true, cancelable: true } )
     span.dispatchEvent(mouseOverEvent)
     // pause
-    setTimeout( function () {clickEmoji_ClickGreyFace( span, emoji )}, clickDelay )
+    setTimeout( function () {clickEmoji_ClickGreyFace( span, emoji )}, clickDelay/2 )
 
     function clickEmoji_ClickGreyFace( span, emoji )
     {
@@ -603,7 +560,7 @@ function clickEmoji( span, score )
             {
                 more.click()
                 ykAlert( 'Clicked on More Emojis', 5 )
-                setTimeout( function () {clickEmoji_ClickMoreReaction( emoji )}, clickDelay )
+                setTimeout( function () {clickEmoji_ClickMoreReaction( emoji )}, clickDelay*1.5 )
             }
         }
     }
@@ -799,7 +756,7 @@ function respondToChat()
                             {
                                 ykAlert('Got the answer right, creating a new puzzle', 1)
                                 responded = 'Correct! ' + message
-                                setTimeout( function () { sendMessage( generateEquation(100) ) }, clickDelay*3.2 )
+                                setTimeout( function () { sendMessage( generateEquation(100) ) }, clickDelay*4 )
                             } else // wrong answer.
                             {
                                 if ( incomingTexts.length > 3 )
