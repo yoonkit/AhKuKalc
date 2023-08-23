@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WhatsApp Interface for AhKuKalc
 // @namespace    http://tampermonkey.net/
-// @version      0.43
+// @version      0.44
 // @description  Chatbot to provide simple addition problems and feedback for young brains
 // @author       Yoon-Kit Yong
 // @match        https://web.whatsapp.com/*
@@ -316,9 +316,8 @@ function getChatTitle()
 }
 
 const reactionEmojis = ['👍','❤️','😂','😮','😢',"🙏","+"]
-
-const goodEmojis = { '❤️': true, '👍': true, '😍': true, '🥰': true, '🤟🏻': true,
-                    '😮':false, '😢': false, '🥵': false, '❌': false, '🫣': false, '🙏': false }
+const scoredEmojis = { '❤️': 300, '🥰': 120, '🏆': 110, '🥳': 100, '🥳': 90, '😍': 80, '🤗': 70, '👏🏾': 60, '🤟🏻': 50, '😎': 40, '🥇': 30, '👍': 20, '💪🏽': 10,
+                 '🙏': -1, '😩':-10, '👎': -30, '🥴': -35, '😮':-40, '🤢': -45, '😢': -50, '🙈': -55, '💩': -58, '🥵': -60, '🥺': -65, '😭': -70, '❌': -100, '😂': -160, '☠️':-200 }
 
 function getDateTimeAuthorFromPrePlainText( preplain )
 {
@@ -359,6 +358,7 @@ function getChatTexts()
      * Returns the list of messages
      * 230731 yky Created
      * 230812 yky the 'message-in' parentElement increased
+     * 230823 yky Modified - the emoji element changed from data-testid to button
     */
     var result = []
     ykAlert( 'Getting Messages', 4)
@@ -382,7 +382,13 @@ function getChatTexts()
             var hasEmoji = false
             var charEmoji = ""
             var emoji = null
-            if (grandparent != null) emoji = grandparent.querySelector('[data-testid="reaction-bubble"]')
+            if (grandparent != null)
+            {
+                emoji = grandparent.querySelector('[data-testid="reaction-bubble"]') // 230801
+                if ( emoji == null ) emoji = grandparent.querySelector('button[aria-label]') // 230823
+                //if ( emoji == null ) ykAlert( 'Cannot find reaction emoji', 0)
+            } //else ykAlert( 'Cannot find grandparent for chat span', 0)
+
             if (emoji != null)
             {
                 var imgs = emoji.getElementsByTagName('img')
@@ -394,7 +400,7 @@ function getChatTexts()
             }
 
             var [datetime, author] = getDateTimeAuthorFromPrePlainText( attribute )
-            var sentimentEmoji = goodEmojis[charEmoji]
+            var sentimentEmoji = scoredEmojis[charEmoji]
             let res = [datetime, author, isIncoming, message, hasEmoji, charEmoji, sentimentEmoji, span ]
 
             result.push( res )
@@ -478,9 +484,9 @@ function simulateKeyPress(field, key)
     field.dispatchEvent(eventup);
 }
 
-var clickDelay = 3000
+var clickDelay = 2000
 
-function clickEmoji( span, emoji )
+function clickEmojiOld( span, emoji )
 {
     /* Reveals the available emojis and clicks on the appropriate one given the span of text
      * 230802 yky Created
@@ -523,6 +529,101 @@ function clickEmoji( span, emoji )
     }
 }
 
+function clickEmoji( span, score )
+{
+    /* Reveals the available emojis and clicks on the appropriate one given the span of text
+     *      Wide range of emojis, and might require additional clicks
+     * 230802 yky Created
+     * 230823 yky Modified - added more emojis
+     */
+
+    var emoji = ""
+    let origScore = score
+    score = score + Math.floor( Math.random()*60 ) - 30
+    if (( origScore < 0) && (score > 0)) score = -score
+    else if (( origScore > 0) && (score < 0)) score = Math.abs( score )
+
+    for ( let [emo, val] of Object.entries(scoredEmojis) )
+    {
+        if (score > val ) break
+        emoji = emo
+    }
+    ykAlert( 'Scoring ' + score + ' with Emoji ' + emoji, 4)
+
+    const mouseOverEvent = new MouseEvent('mouseover', { view: window, bubbles: true, cancelable: true } )
+    span.dispatchEvent(mouseOverEvent)
+    // pause
+    setTimeout( function () {clickEmoji_ClickGreyFace( span, emoji )}, clickDelay )
+
+    function clickEmoji_ClickGreyFace( span, emoji )
+    {
+        /* Waits for the grey emoji to appear on hover, and clicks on it
+         * 230812 yky Modified - updated another div's parentElement before nextSibling
+         * 230821 yky Modified - using classnames to locate the grandparent and button
+        */
+        ykAlert( 'Clicking on GreyFace', 5)
+        //var div = span.parentElement.parentElement.parentElement
+        //var emo = div.parentElement.parentElement.nextSibling
+        //var emoc = emo.firstChild.firstChild.firstChild
+
+        var grandparent = getParentWithClass( span, 'UzMP7' )
+        var button = grandparent.querySelector('[aria-label="React"]')
+        // var button = grandparent.querySelector('[data-testid="reaction-entry-point"]')
+        if (button == null) ykAlert( 'Cant find the emoji greyface button', 0)
+        else
+        {
+            button.click()
+            setTimeout( function () {clickEmoji_ClickReaction( emoji )}, clickDelay )
+        }
+    }
+
+    function clickEmoji_ClickReaction( emoji )
+    {
+        /* Clicks on the revealed emojis available for the particular span
+         *    reaction-option-0 is thumbs up, 1= heart, 2=laugh
+         *       3 = surprised, 4=cry, 5=prayer
+         *       "show-more" is the plus
+         * 230802 yky Created
+        */
+        var numStandard = reactionEmojis.indexOf( emoji )
+        if (numStandard >= 0)
+        {
+            //var emo = document.querySelector("[data-testid='reactions-option-"+numStandard+"']")
+            var emo = document.querySelector("[alt='"+emoji+"']")
+            if (emo == null) ykAlert( 'Cant find the standard emoji ' + emoji + ' button at #' + numStandard, 0)
+            else
+            {
+                emo.click()
+                ykAlert( 'Clicked on "' + emoji + '" emoji ' + emo, 3)
+            }
+        } else {
+            var more = document.querySelector('[aria-label="More reactions"]')
+            if (more == null) ykAlert( 'Cant find the more emoji button', 0)
+            else
+            {
+                more.click()
+                ykAlert( 'Clicked on More Emojis', 5 )
+                setTimeout( function () {clickEmoji_ClickMoreReaction( emoji )}, clickDelay )
+            }
+        }
+    }
+    function clickEmoji_ClickMoreReaction( emoji )
+    {
+        /* Clicks on the specific emoji from the long list of emojis
+         *      There may be issues with emojis down the list which may not be loaded yet.
+         * 230823 yky Created
+        */
+        let emo = document.querySelector('[data-emoji="'+ emoji +'"]')
+        if (emo == null) ykAlert( 'Cant find the ' + emoji + ' emoji from the list' , 0)
+        else
+        {
+            emo.click()
+            ykAlert( 'Clicked on "' + emoji + '" emoji ' + emo, 3)
+        }
+        return emo
+    }
+}
+
 function eventFire(el, etype)
 {
     /* Simulates an event on an element
@@ -550,8 +651,12 @@ function focusNewChat()
      *       Deprioritizes "You sent / reacted" for groups
      *       If it has a double check then isMe
      *  230812  yky  Created
+     *  230823  yky  Modified - chats 'data-testid=cell-frame-container' changed
+     *      last-msg-status changed, need to search by class now
      */
-    var chats = document.querySelectorAll("[data-testid='cell-frame-container']")
+    //var chats = document.querySelectorAll("[data-testid='cell-frame-container']")
+    //var chats = document.querySelectorAll("[role='listitem']")
+    var chats = document.querySelectorAll("._199zF._3j691")
     var potentials = []
     var priority = []
 
@@ -559,7 +664,12 @@ function focusNewChat()
 
     for ( let chat of chats )
     {
-        let message = chat.querySelector("[data-testid='last-msg-status']")
+        let author = chat.querySelector('[aria-label]')
+        if (author != null) author = author.textContent
+        else author = ""
+
+        let message = chat.querySelector( ".p357zi0d" )
+        //let message = chat.querySelector("[data-testid='last-msg-status']")
         if (message != null)
         {
             let msg = message.textContent
@@ -570,9 +680,10 @@ function focusNewChat()
 
             if (isEquation( msg ))
             {
+                let item = [chat, author, msg, isMe]
                 //ykAlert( "Slotting in :" + msg )
-                if ((isMe) || (!isUnread)) potentials.push( [chat, msg, isMe] )
-                else priority.push( [chat, msg, isMe] )
+                if ((isMe) || (!isUnread)) potentials.push( item )
+                else priority.push( item )
             }
         }
     }
@@ -594,8 +705,8 @@ function focusNewChat()
 
     if (selected != null)
     {
-        let [chat, msg, isMe] = selected
-        ykAlert( "clicking on: '" + msg +"' ", 0 )
+        let [chat, author, msg, isMe] = selected
+        ykAlert( '"' + author + '" selected; "' + msg + '" ', 0 )
         eventFire( chat, "mousedown" )
     }
     return [priority, potentials]
@@ -670,15 +781,17 @@ function respondToChat()
                         if (!isNaN(equalsval))
                         {
                             if (equalsval == equalsverified) rate = rateComplex
-                            else rate = -10
+                            else rate = -50
                             currentdifficulty -= 3
                         }
                         ykAlert( 'Rating response: ' + rate + ' :' + [isEquation, lhs, equalsval, equalsverified], 5 )
-                        if (rate < -50) clickEmoji( span, 4 )
+
+                        clickEmoji(span, rate)
+                        /*if (rate < -50) clickEmoji( span, 4 )
                         else if (rate < 0) clickEmoji( span, 3 )
                         else if (rate > 95) clickEmoji( span, 1 )
                         else if (rate > 40) clickEmoji( span, 0 )
-                        else if (rate >= 0) clickEmoji( span, 5 )
+                        else if (rate >= 0) clickEmoji( span, 5 )*/
 
                         if (!isLastResponseMine)
                         {
@@ -686,7 +799,7 @@ function respondToChat()
                             {
                                 ykAlert('Got the answer right, creating a new puzzle', 1)
                                 responded = 'Correct! ' + message
-                                setTimeout( function () { sendMessage( generateEquation(100) ) }, clickDelay*3 )
+                                setTimeout( function () { sendMessage( generateEquation(100) ) }, clickDelay*3.2 )
                             } else // wrong answer.
                             {
                                 if ( incomingTexts.length > 3 )
@@ -728,13 +841,13 @@ function heartBeat()
 	 *    Suicides if window.heartBeatTimeout == -1
 	 * 230815 Created yky
 	 */
-    if (UW.heartBeatTimeout == -1)
+    if (document.heartBeatTimeout == -1)
     {
         ykAlert( 'Heart Stopped', 0 )
         return 0
     }
     ykAlert('Heart Beat ... ', 4)
-    UW.heartBeatTimeout = setTimeout( function () { heartBeat() }, 60000 )
+    document.heartBeatTimeout = setTimeout( function () { heartBeat() }, 60000 )
     focusNewChat()
     setTimeout( function () { respondToChat() }, 7000 )
     setTimeout( function () { respondToChat() }, 26000 )
@@ -742,7 +855,6 @@ function heartBeat()
 }
 
 ykAlert('Starting AhKuKalc Heartbeat', 0)
-var UW = window // = unsafeWindow
-document.uw = UW
+
 var heartBeatTimeout = setTimeout( function () { heartBeat() }, 10000 ) // 230812 yky Run this after loadup
-UW.heartBeatTimeout = heartBeatTimeout
+document.heartBeatTimeout = heartBeatTimeout
