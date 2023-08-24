@@ -610,6 +610,7 @@ function focusNewChat()
      *  230812  yky  Created
      *  230823  yky  Modified - chats 'data-testid=cell-frame-container' changed
      *      last-msg-status changed, need to search by class now
+     *  230824  yky  Modified - fixed class name for the last-msg-status to span.p357zi0d
      */
     //var chats = document.querySelectorAll("[data-testid='cell-frame-container']")
     //var chats = document.querySelectorAll("[role='listitem']")
@@ -625,7 +626,7 @@ function focusNewChat()
         if (author != null) author = author.textContent
         else author = ""
 
-        let message = chat.querySelector( ".p357zi0d" )
+        let message = chat.querySelector( "span.p357zi0d" )
         //let message = chat.querySelector("[data-testid='last-msg-status']")
         if (message != null)
         {
@@ -805,10 +806,10 @@ function heartBeat()
     }
     ykAlert('Heart Beat ... ', 4)
     document.heartBeatTimeout = setTimeout( function () { heartBeat() }, 60000 )
-    focusNewChat()
-    setTimeout( function () { respondToChat() }, 7000 )
-    setTimeout( function () { respondToChat() }, 26000 )
-    setTimeout( function () { respondToChat() }, 45000 )
+    document.chatList = focusNewChat()
+    setTimeout( function () { document.chatResponse = respondToChat() }, 7000 )
+    setTimeout( function () { document.chatResponse = respondToChat() }, 26000 )
+    setTimeout( function () { document.chatResponse = respondToChat() }, 45000 )
 }
 
 ykAlert('Starting AhKuKalc Heartbeat', 0)
