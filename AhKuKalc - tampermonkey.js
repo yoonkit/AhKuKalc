@@ -1,14 +1,16 @@
 // ==UserScript==
 // @name         WhatsApp Interface for AhKuKalc
 // @namespace    http://tampermonkey.net/
-// @version      0.44
-// @description  Chatbot to provide simple addition problems and feedback for young brains
+// @version      0.50
+// @description  Chatbot to provide simple addition problems and feedback for young intellectuals
 // @author       Yoon-Kit Yong
 // @match        https://web.whatsapp.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=whatsapp.com
 // @grant        none
 // @require      https://code.jquery.com/jquery-3.5.1.min.js#sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=
 // @run-at       document-idle
+// @updateURL    https://raw.githubusercontent.com/yoonkit/AhKuKalc/main/AhKuKalc%20-%20tampermonkey.js
+// @downloadURL  https://raw.githubusercontent.com/yoonkit/AhKuKalc/main/AhKuKalc%20-%20tampermonkey.js
 // ==/UserScript==
 
 var verbosity = 3
