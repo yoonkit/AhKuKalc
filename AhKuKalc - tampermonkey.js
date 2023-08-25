@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WhatsApp Interface for AhKuKalc
 // @namespace    http://tampermonkey.net/
-// @version      0.50
+// @version      0.55
 // @description  Chatbot to provide simple addition problems and feedback for young intellectuals
 // @author       Yoon-Kit Yong
 // @match        https://web.whatsapp.com/*
@@ -318,7 +318,7 @@ function getChatTitle()
 }
 
 const reactionEmojis = ['👍','❤️','😂','😮','😢',"🙏","+"]
-const scoredEmojis = { '❤️': 300, '🥰': 120, '🏆': 110, '🥳': 100, '🥳': 90, '😍': 80, '🤗': 70, '👏🏾': 60, '🤟🏻': 50, '😎': 40, '🥇': 30, '👍': 20, '💪🏽': 10,
+const scoredEmojis = { '❤️': 300, '💕': 150, '🥰': 120, '🏆': 110, '🥳': 100, '🥳': 90, '😍': 80, '🤗': 70, '👏🏾': 60, '🤟🏻': 50, '😎': 40, '🥇': 30, '👍': 20, '💪🏽': 10,
                  '🙏': -1, '😩':-10, '👎': -30, '🥴': -35, '😮':-40, '🤢': -45, '😢': -50, '🙈': -55, '💩': -58, '🥵': -60, '🥺': -65, '😭': -70, '❌': -100, '😂': -160, '☠️':-200 }
 
 function getDateTimeAuthorFromPrePlainText( preplain )
@@ -487,6 +487,7 @@ function simulateKeyPress(field, key)
 }
 
 var clickDelay = 2000
+var loadedEmojis = 0
 
 function clickEmoji( span, score )
 {
@@ -508,6 +509,12 @@ function clickEmoji( span, score )
         emoji = emo
     }
     ykAlert( 'Scoring ' + score + ' with Emoji ' + emoji, 4)
+
+    let grid = document.querySelector('._2pWdM[role="grid"]')
+    if (grid != null) // 230826 yky  The grid is already up. Usually gets stuck here.
+    {
+        return clickEmoji_ClickMoreReaction( emoji )
+    }
 
     const mouseOverEvent = new MouseEvent('mouseover', { view: window, bubbles: true, cancelable: true } )
     span.dispatchEvent(mouseOverEvent)
@@ -571,15 +578,48 @@ function clickEmoji( span, score )
         /* Clicks on the specific emoji from the long list of emojis
          *      There may be issues with emojis down the list which may not be loaded yet.
          * 230823 yky Created
+         * 230826 yky Modified - Scrolls through the emojis and calls itself, if it cant load the emojis. Limited to 3 times
         */
         let emo = document.querySelector('[data-emoji="'+ emoji +'"]')
-        if (emo == null) ykAlert( 'Cant find the ' + emoji + ' emoji from the list' , 0)
+        if (emo == null)
+        {
+            ykAlert( 'Cant find the ' + emoji + ' emoji from the list' , 3)
+            let animal = preloadEmojis()
+            if ( (animal != null) && ( (loadedEmojis % 3) != 0 ) )
+            {
+                setTimeout( function () {clickEmoji_ClickMoreReaction( emoji )}, clickDelay*2.5 )
+            }
+            else
+            {
+                ykAlert( 'Tried loading ' + emoji + '. The grid will be stuck open till the next focusChat. #' + loadedEmojis, 0)
+            }
+        }
         else
         {
             emo.click()
             ykAlert( 'Clicked on "' + emoji + '" emoji ' + emo, 3)
         }
         return emo
+    }
+    function preloadEmojis()
+    {
+        // 230826 yky Created
+        let animal = document.querySelector('[title="Animals & Nature"]')
+        if (animal == null)
+        {
+            ykAlert( 'Emoji grid not loaded.', 0 )
+            return null
+        }
+        ykAlert( 'Scrolling through all the emojis: #' + loadedEmojis, 5)
+        let activity = document.querySelector('[title="Activity"]')
+        let objects = document.querySelector('[title="Objects"]')
+        let flags = document.querySelector('[title="Flags"]')
+        animal.click()
+        setTimeout( function () { activity.click() }, clickDelay*0.6 )
+        setTimeout( function () { objects.click() }, clickDelay*1.2 )
+        setTimeout( function () { flags.click() }, clickDelay*1.8 )
+        loadedEmojis++
+        return animal
     }
 }
 
