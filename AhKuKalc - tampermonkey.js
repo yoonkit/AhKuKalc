@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WhatsApp Interface for AhKuKalc
 // @namespace    http://tampermonkey.net/
-// @version      0.55
+// @version      0.56
 // @description  Chatbot to provide simple addition problems and feedback for young intellectuals
 // @author       Yoon-Kit Yong
 // @match        https://web.whatsapp.com/*
@@ -611,13 +611,23 @@ function clickEmoji( span, score )
             return null
         }
         ykAlert( 'Scrolling through all the emojis: #' + loadedEmojis, 5)
+        let smileys = document.querySelector('[title="Smileys & People"]')
         let activity = document.querySelector('[title="Activity"]')
+        let food = document.querySelector('[title="Food & Drink"]')
         let objects = document.querySelector('[title="Objects"]')
+        let symbols = document.querySelector('[title="Symbols"]')
         let flags = document.querySelector('[title="Flags"]')
         animal.click()
-        setTimeout( function () { activity.click() }, clickDelay*0.6 )
-        setTimeout( function () { objects.click() }, clickDelay*1.2 )
-        setTimeout( function () { flags.click() }, clickDelay*1.8 )
+        if ( Math.random() > 0.5 )
+        {
+            setTimeout( function () { activity.click() }, clickDelay*0.6 )
+            setTimeout( function () { objects.click() }, clickDelay*1.2 )
+            setTimeout( function () { flags.click() }, clickDelay*1.8 )
+        } else {
+            setTimeout( function () { smileys.click() }, clickDelay*0.6 )
+            setTimeout( function () { symbols.click() }, clickDelay*1.2 )
+            setTimeout( function () { food.click() }, clickDelay*1.8 )
+        }
         loadedEmojis++
         return animal
     }
