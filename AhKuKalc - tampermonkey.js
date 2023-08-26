@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WhatsApp Interface for AhKuKalc
 // @namespace    http://tampermonkey.net/
-// @version      0.56
+// @version      0.57
 // @description  Chatbot to provide simple addition problems and feedback for young intellectuals
 // @author       Yoon-Kit Yong
 // @match        https://web.whatsapp.com/*
@@ -580,12 +580,15 @@ function clickEmoji( span, score )
          * 230823 yky Created
          * 230826 yky Modified - Scrolls through the emojis and calls itself, if it cant load the emojis. Limited to 3 times
         */
-        let emo = document.querySelector('[data-emoji="'+ emoji +'"]')
+        //let emo = document.querySelector('[data-emoji="'+ emoji +'"]')
+        let emo = findEmoji( emoji )
+        loadedEmojis++
         if (emo == null)
         {
             ykAlert( 'Cant find the ' + emoji + ' emoji from the list' , 3)
-            let animal = preloadEmojis()
-            if ( (animal != null) && ( (loadedEmojis % 3) != 0 ) )
+            //let animal = preloadEmojis()
+            //if ( (animal != null) && ( (loadedEmojis % 3) != 0 ) )
+            if ( (loadedEmojis % 3) != 0 )
             {
                 setTimeout( function () {clickEmoji_ClickMoreReaction( emoji )}, clickDelay*2.5 )
             }
@@ -632,6 +635,58 @@ function clickEmoji( span, score )
         return animal
     }
 }
+function getTranslateY( element )
+{
+    // 230827 yky Created. Lots of string mangling
+    return parseInt(element.getAttribute('style').split("translateY(")[1].split("px")[0])
+}
+
+function getLowestGrid()
+{
+    // 230827 yky Created.
+    //let searchReaction = document.querySelector("._1oIeI.y7k-3")
+    let recentReaction = document.querySelector('[title="Recent Reactions"]')
+    if (recentReaction == null)
+    {
+        ykAlert( 'Cannot find More Emoji popup. Abort', 0 )
+        return
+    }
+
+    //let pointer = document.querySelector('[style="pointer-events: auto;"]')
+    let pointer = getParentWithClass( recentReaction, "_2pWdM" )
+    let list = pointer.querySelectorAll("[role='listitem']")
+    if (list == null)
+    {
+        ykAlert( 'Cannot find Emoji List Items. Abort', 0 )
+        return
+    } else ykAlert( 'Found ' + list.length + ' rows of emojis', 8 )
+    let yMax = 0
+    let yMaxEle = null
+    for ( let l of list )
+    {
+        let transform = getTranslateY( l )
+        if (transform > yMax)
+        {
+            yMax = transform
+            yMaxEle = l
+        }
+    }
+    return yMaxEle
+}
+
+function findEmoji( emoji )
+{
+    let emo = document.querySelector('[data-emoji="'+ emoji +'"]')
+    let timeout = null
+    if (emo == null)
+    {
+        let low = getLowestGrid()
+        low.scrollIntoView()
+        if (getTranslateY( low ) < 11939) timeout = setTimeout( function () { findEmoji( emoji ) }, 200 )
+    }
+    return emo
+}
+
 
 function eventFire(el, etype)
 {
