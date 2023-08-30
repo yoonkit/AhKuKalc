@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WhatsApp Interface for AhKuKalc
 // @namespace    http://tampermonkey.net/
-// @version      0.57
+// @version      0.58
 // @description  Chatbot to provide simple addition problems and feedback for young intellectuals
 // @author       Yoon-Kit Yong
 // @match        https://web.whatsapp.com/*
@@ -318,8 +318,8 @@ function getChatTitle()
 }
 
 const reactionEmojis = ['👍','❤️','😂','😮','😢',"🙏","+"]
-const scoredEmojis = { '❤️': 300, '💕': 150, '🥰': 120, '🏆': 110, '🥳': 100, '🥳': 90, '😍': 80, '🤗': 70, '👏🏾': 60, '🤟🏻': 50, '😎': 40, '🥇': 30, '👍': 20, '💪🏽': 10,
-                 '🙏': -1, '😩':-10, '👎': -30, '🥴': -35, '😮':-40, '🤢': -45, '😢': -50, '🙈': -55, '💩': -58, '🥵': -60, '🥺': -65, '😭': -70, '❌': -100, '😂': -160, '☠️':-200 }
+const scoredEmojis = { '❤️': 300, '💕': 150, '🥰': 140, '🤗': 120, '🏆': 110, '🥳': 100, '👌':95, '🥳': 90, '😍': 80, '🤙':70, '👏🏾': 60, '🤟🏻': 50, '😎': 40, '🥇': 30, '👍': 20, '💪🏽': 10,
+                 '🙏': -1, '😩':-10, '🙀': -20, '👎': -30, '🥴': -35, '😮':-40, '🤢': -45, '😢': -50, '🙈': -55, '💩': -58, '🥵': -60, '🥺': -65, '😭': -70, '😤': -75, '❌': -100, '😂': -160, '☠️':-200 }
 
 function getDateTimeAuthorFromPrePlainText( preplain )
 {
@@ -601,9 +601,24 @@ function clickEmoji( span, score )
         {
             emo.click()
             ykAlert( 'Clicked on "' + emoji + '" emoji ' + emo, 3)
+            setTimeout( function () {clickSkinColor( emoji )}, clickDelay ) // Skin Selector
         }
         return emo
     }
+
+    function clickSkinColor( emoji )
+    {
+        // 230830 yky Created - Some emojis get to select the skin color. This will run just incase
+        var skins = document.querySelectorAll('li.K0fvq.Iaqxu.FCS6Q')
+        ykAlert( 'Found the skins selector', 5 )
+        if (skins.length > 0)
+        {
+            let skin = skins[ Math.floor(Math.random()*skins.length) ]
+            skin.click()
+            ykAlert( 'Clicked on ' + skin.querySelector('img').alt, 0)
+        }
+    }
+
     function preloadEmojis()
     {
         // 230826 yky Created
@@ -676,6 +691,7 @@ function getLowestGrid()
 
 function findEmoji( emoji )
 {
+    // 230827 yky Created - Scrolls through the emoji palette with a small delay
     let emo = document.querySelector('[data-emoji="'+ emoji +'"]')
     let timeout = null
     if (emo == null)
