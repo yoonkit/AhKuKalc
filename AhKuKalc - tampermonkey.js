@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WhatsApp Interface for AhKuKalc
 // @namespace    http://tampermonkey.net/
-// @version      0.59
+// @version      0.60
 // @description  Chatbot to provide simple addition problems and feedback for young intellectuals
 // @author       Yoon-Kit Yong
 // @match        https://web.whatsapp.com/*
@@ -613,7 +613,8 @@ function clickEmoji( span, score )
         ykAlert( 'Found the skins selector', 5 )
         if (skins.length > 0)
         {
-            let skin = skins[ Math.floor(Math.random()*skins.length) ]
+            //let skin = skins[ Math.floor(Math.random()*skins.length) ]
+            let skin = skins[0] // 230830 yky Always clicking the default yellow. Otherwise hard to search again.
             skin.click()
             ykAlert( 'Clicked on ' + skin.querySelector('img').alt, 0)
         }
