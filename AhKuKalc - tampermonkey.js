@@ -382,7 +382,7 @@ function getChatTexts()
     if (seltext.length == 0)
 		ykAlert( 'Could not find any Chat messages!', -1)
 	else
-		ykAlert( 'Total Messages: ' + seltext.length, 3 )
+		ykAlert( 'Total Messages: ' + seltext.length, 8 )
 	
     for (let span of seltext)
     {
@@ -644,7 +644,7 @@ function clickEmoji( span, score )
         else
         {
             emo.click()
-            ykAlert( 'Clicked on "' + emoji + '" emoji ' + emo, 3)
+            ykAlert( 'Clicked on "' + emoji + '" emoji ' + emo, 6)
             setTimeout( function () {clickSkinColor( emoji )}, clickDelay ) // Skin Selector
         }
         return emo
@@ -668,9 +668,9 @@ function clickEmoji( span, score )
             //let skin = skins[ Math.floor(Math.random()*skins.length) ]
             let skin = skins[0] // 230830 yky Always clicking the default yellow. Otherwise hard to search again.
             skin.click()
-            ykAlert( 'Clicked on ' + skin.querySelector('img').alt, 2)
+            ykAlert( 'Clicked on ' + skin.querySelector('img').alt, 6)
         } else {
-			ykAlert( 'No Skins found', 5 )
+			ykAlert( 'No Skins found', 8 )
 		}
     }
 
@@ -812,14 +812,15 @@ function focusNewChat()
 	 *  240331  yky  Modified - wa changed their classes again 
 	 * 					left pane-side chat items "._199zF._3j691" to "._ak72"
 	 *					combined [aria-labels] for author, message and unread-message
+	 *					"ak72" to querySelector('[aria-label="Chat list"]').childNodes
      */
 
 	// Selecting the Left Pane-Side Chat List items. Some of them may be special because unread or double ticked.
-	// /html/body/div[1]/div/div/div[2]/div[3]/div/div[2]/div/div/div/div[11]/div/div/div
     //var chats = document.querySelectorAll("[data-testid='cell-frame-container']") // 230823 yky Stopped working
     //var chats = document.querySelectorAll("[role='listitem']")
     // var chats = document.querySelectorAll("._199zF._3j691") // 240331 yky Stopped working
-    var chats = document.querySelectorAll("._ak72")
+	// var chats = document.querySelectorAll("._ak72")
+    var chats = document.querySelector('[aria-label="Chat list"]').childNodes
 	if (chats.length == 0)
 		{
 			ykAlert( 'Cant seem to find the Left Pane-Side Chat List!', -1 )
@@ -831,7 +832,10 @@ function focusNewChat()
 
     for ( let chat of chats )
     {
-        let chatDetails = chat.querySelectorAll('[aria-label]')
+		let chatFocus = chat.firstChild.firstChild.firstChild // 240401 yky Because we are not querying by the element with the event handler, we have to find this 3 children down.
+		
+        //let chatDetails = chat.querySelectorAll('[aria-label]')
+        let chatDetails = chat.querySelectorAll('[title]') // 240401 yky Finding the Text
 		if (chatDetails.length < 2)
 			{
 				author = ""
@@ -842,29 +846,38 @@ function focusNewChat()
 		
 			// Selecting the Author (Bold Names in the Chat item). Its not crucial not to have it
 			let author = chatDetails[0]
-			if (author != null) author = author.textContent
+			if (author != null) author = author.title
 
 			//let message = chat.querySelector("[data-testid='last-msg-status']")
 			//let message = chat.querySelector( "span.p357zi0d" ) // 240331 yky Stopped Working
-			let message = chatDetails[1]
-			if (message != null)
+			let msg = chatDetails[1].title
+			
+			if (msg != "")
 				{
-					let msg = message.textContent
-					let isMe = (msg.indexOf("You:") == 0) || (msg.indexOf("You reacted ") == 0)
+					let chattxt = chat.textContent
 					
+					let isMe = (chattxt.indexOf("You reacted") > 0) // 240331 yky simplifying
 					
 					let hasDoubleCheck = chat.querySelector( "[data-icon='status-dblcheck']" ) != null
 					isMe = isMe || hasDoubleCheck
 					
+
+					//if (msg == "You") msg = chatDetails[2].textContent // 240331 yky Skipping Group Chats
+
 					
 					// let isUnread = chat.className.indexOf("_1KV7I") >= 0 // 240331 yky Stopped Working
 					// 240331 yky Using the fact that if there is an unread, it shows up as an aria-label="1 unread message"
-					let isUnread = chatDetails.length == 3
+					
+					let ariaLabels = chat.querySelectorAll('[aria-label]')
+					let isUnread = ariaLabels[ ariaLabels.length-1 ].ariaLabel.indexOf("unread") > 0
+
+					//if (isUnread)
+					//	msg = chatDetails[ chatDetails.length-2 ].textContent
 
 					if (isEquation( msg ))
 					{
-						let item = [chat, author, msg, isMe]
-						//ykAlert( "Slotting in :" + msg )
+						let item = [chatFocus, author, msg, isMe]
+
 						if ((isMe) || (!isUnread)) potentials.push( item )
 						else priority.push( item )
 					}
@@ -914,7 +927,7 @@ function respondToChat()
     ykAlert( 'Trying to respond to ' + length + ' messages ', 4 )
     try
     {
-        ykAlert("Messages: " + texts.length, 3 )
+        ykAlert("Messages: " + texts.length, 8 )
 
         var incomingTexts = []
         var hasResponded = false
