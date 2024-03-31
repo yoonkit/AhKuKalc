@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WhatsApp Interface for AhKuKalc
 // @namespace    http://tampermonkey.net/
-// @version      0.70
+// @version      0.71
 // @description  Chatbot to provide simple addition problems and feedback for young intellectuals
 // @author       Yoon-Kit Yong
 // @match        https://web.whatsapp.com/*
