@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WhatsApp Interface for AhKuKalc
 // @namespace    http://tampermonkey.net/
-// @version      0.63
+// @version      0.70
 // @description  Chatbot to provide simple addition problems and feedback for young intellectuals
 // @author       Yoon-Kit Yong
 // @match        https://web.whatsapp.com/*
@@ -274,11 +274,15 @@ function generateEquation( difficulty )
 var $ = window.jQuery; // 230729 yky Watch out for Apple problems with jQuery
 var debug = -1; //230729 yky Set to -1 for production, 0 for debug
 
+/*
 function getChatTitle()
 {
     /* 230731 yky Created
 	 * 230820 yky Modified - capturing exceptions. just incase
+	 * 240331 yky This isnt really used. could deprecate.
 	 */
+	
+	/*
     var isGroup = false
     var title = ""
     var members = ""
@@ -311,11 +315,12 @@ function getChatTitle()
             }
         }
     } catch(err) {
-            ykAlert( err.message + ": " + title )
+            ykAlert( err.message + ": " + title, -1 )
     }
     ykAlert( 'Chat Title: ' + title, 2 )
     return [isGroup, title, members]
-}
+	
+}*/
 
 const reactionEmojis = ['👍','❤️','😂','😮','😢',"🙏","+"]
 const scoredEmojis = { '❤️': 300, '💕': 150, '🥰': 140, '🦄': 130, '🤗': 120, '👑': 115, '🏆': 110, '🥳': 100, '👌':95, '🥳': 90, '🌞': 85, '😍': 80, '😻': 75,
@@ -329,9 +334,12 @@ function getDateTimeAuthorFromPrePlainText( preplain )
      *      Date to be in DD/MM/YYYY for now
      *   Cleaned Author name
      * 230731 yky Created
+	 * 240431 yky Modified
+	 *		Found a bug that sometimes WA has a "10:31 am" in the timestr. Stripping the " am"
     */
     var [ datetimestr, authorstr ] = preplain.replace('[','').split(']')
     var [ timestr, datestr ] = datetimestr.split(', ')
+	timestr = timestr.split(" ")[0] // 240331 yky Removing trailing " am" 
     var [ day, month, year ] = datestr.split('/')
     var datetime = new Date( year + "-" + month + "-" + day + "T" + timestr + ":00" )
     authorstr = authorstr.trim()
@@ -362,11 +370,20 @@ function getChatTexts()
      * 230731 yky Created
      * 230812 yky the 'message-in' parentElement increased
      * 230823 yky Modified - the emoji element changed from data-testid to button
+	 * 240331 yky Modified - WA modified their classes again
+	 *			"_11JPr selectable-text" to just "selectable-text" of type <span>
+	 *			Emoji '[data-testid="reaction-bubble"]' to '[aria-haspopup]'
+	 *			Fixed Time Parsing
     */
     var result = []
     ykAlert( 'Getting Messages', 4)
-    var seltext = document.getElementsByClassName("_11JPr selectable-text")
-    ykAlert( 'Total Messages: ' + seltext.length, 3 )
+    // var seltext = document.getElementsByClassName("_11JPr selectable-text") // 240331 yky Stopped Working
+    var seltext = document.getElementsByClassName("selectable-text")
+    if (seltext.length == 0)
+		ykAlert( 'Could not find any Chat messages!', -1)
+	else
+		ykAlert( 'Total Messages: ' + seltext.length, 3 )
+	
     for (let span of seltext)
     {
         try
@@ -387,10 +404,10 @@ function getChatTexts()
             var emoji = null
             if (grandparent != null)
             {
-                emoji = grandparent.querySelector('[data-testid="reaction-bubble"]') // 230801
-                if ( emoji == null ) emoji = grandparent.querySelector('button[aria-label]') // 230823
-                //if ( emoji == null ) ykAlert( 'Cannot find reaction emoji', 0)
-            } //else ykAlert( 'Cannot find grandparent for chat span', 0)
+                // emoji = grandparent.querySelector('[data-testid="reaction-bubble"]') // 230801 // 240331 Stopped Working
+                emoji = grandparent.querySelector('[aria-haspopup]') // 240331
+                if ( emoji == null ) emoji = grandparent.querySelector('button[aria-label]') // 230823 Retrying
+            } 
 
             if (emoji != null)
             {
@@ -421,23 +438,25 @@ function clickSend(div)
     /* Clicks the Send button if available
      *   Usually called as a setTimeout function as the widget isnt displayed after the first text is entered into the textarea
      * 230802 yky Created
+	 * 240331 yky Modified - WA changed the ClassName for the Arrow send button
+	 *		Finding a more generic name, and aria-labels tend not to change
+	 *			from "tvf2evcx oq44ahr5 lb5m6g5c svlsagor p2rjqpw5 epia9gcq" to '[aria-label="Send"]'
     */
     ykAlert( 'Clicking on Send', 4)
 	var send = null
     var i = 3
     do {
-        let sends = document.getElementsByClassName("tvf2evcx oq44ahr5 lb5m6g5c svlsagor p2rjqpw5 epia9gcq")
+        //let sends = document.getElementsByClassName("tvf2evcx oq44ahr5 lb5m6g5c svlsagor p2rjqpw5 epia9gcq") // 240331 yky Stopped Working
+        let sends = document.querySelectorAll('[aria-label="Send"]') // 240331 yky Using a more generic tag
         if (sends.length > 0)
         {
             send = sends[0]
             send.click()
-            ykAlert( 'Send clicked', 3)
+            ykAlert( 'Send clicked', 4)
         } else
         {
-            div.focus()
-            document.execCommand('insertText', false, ' ' ) // 230802 yky execCommand might get deprecated
+			ykAlert("Could not find the Send Arrow button", -1)
         }
-        //ykAlert( send )
     } while ( (send == null) & (i-- > 0) )
 }
 
@@ -450,18 +469,32 @@ function sendMessage( text )
      *     Seems to work with execCommand('insertText' .. ) however this will be deprecated soon.
      *   Send button will only appear only a few milliseconds after the insertText. Needs a delay
      * 230801 yky Created
+	 * 240331 yky Modified - WA changed the Classname for the input textbox. Finding something more generic
+	 *			class="to2l77zo gfz4du6o ag5g9lrv bze30y65 kao4egtt" to "[role='textbox']"
+	 * 			Had to fix the Arrow Send too in clickSend(div)
     */
-    var div = document.getElementsByClassName("to2l77zo gfz4du6o ag5g9lrv bze30y65 kao4egtt")[1]
-    div.focus()
-    document.execCommand('insertText', false, text ) // 230802 yky execCommand might get deprecated
+    //var div = document.getElementsByClassName("to2l77zo gfz4du6o ag5g9lrv bze30y65 kao4egtt")[1] // 240331 yky Stopped Working
+    var textboxes = document.querySelectorAll("[role='textbox']") // 240331 yky Choosing the second text box. First one is the search.
+	
+	if (textboxes.length == 0) ykAlert("Could not find the 'Type a message' text input box", -1)
+	else 
+		{
+		div = textboxes[1]
 
-    setTimeout( function () { clickSend(div) }, 500 )
-    ykAlert( 'Sending: ' + text, 2)
+		div.focus()
+		document.execCommand('insertText', false, text ) // 230802 yky execCommand might get deprecated
+
+		setTimeout( function () { clickSend(div) }, 500 )
+		ykAlert( 'Sending: ' + text, 2)
+
+		}
 }
 
+/*
 function fillTextBox( text )
 {
 	// 230820 yky Testing. Trying to inject these div/p/span into the textbox. Doesnt work
+	// 240331 yky This isnt really used. Can deprecate
     var parent = document.getElementsByClassName("g0rxnol2 ln8gz9je lexical-rich-text-input")[1]
     var div = '<div class="to2l77zo gfz4du6o ag5g9lrv bze30y65 kao4egtt" contenteditable="true" role="textbox" spellcheck="true" title="Type a message" data-testid="conversation-compose-box-input" tabindex="10" data-tab="10" data-lexical-editor="true" style="max-height: 7.35em; min-height: 1.47em; user-select: text; white-space: pre-wrap; word-break: break-word;">'
     var divspan = '<p class="selectable-text copyable-text iq0m558w g0rxnol2" style="text-indent: 0px;" dir="ltr"><span class="selectable-text copyable-text" data-lexical-text="true">'
@@ -479,13 +512,16 @@ function simulateKeyPress(field, key)
     /* Keypresses on the elements
      *   Unfortunately these events.isTrusted == false
      * 230801 yky Created. Doesnt Work.
+	 * 240331 yky This isnt really used. Can deprecate
     */
+	
+	/*
     const eventdown = new KeyboardEvent('keydown', { 'key': key });
     const eventup = new KeyboardEvent('keyup', { 'key': key });
     field.focus();
     field.dispatchEvent(eventdown);
     field.dispatchEvent(eventup);
-}
+} */
 
 var clickDelay = 2000
 var loadedEmojis = 0
@@ -496,6 +532,8 @@ function clickEmoji( span, score )
      *      Wide range of emojis, and might require additional clicks
      * 230802 yky Created
      * 230823 yky Modified - added more emojis
+	 * 240331 yky Modified - WA updated the classes. Making queries more generic
+	 *				grid = '._2pWdM[role="grid"]' to '[title="Recent reactions"]'
      */
 
     var emoji = ""
@@ -511,12 +549,14 @@ function clickEmoji( span, score )
     }
     ykAlert( 'Scoring ' + score + ' with Emoji ' + emoji, 4)
 
-    let grid = document.querySelector('._2pWdM[role="grid"]')
+    // let grid = document.querySelector('._2pWdM[role="grid"]') // 240331 yky Stopped Working
+	let grid = document.querySelector('[title="Recent reactions"]') // 240331 yky More generic
     if (grid != null) // 230826 yky  The grid is already up. Usually gets stuck here.
     {
         return clickEmoji_ClickMoreReaction( emoji )
     }
 
+	ykAlert( 'Mouse over to reveal GreyFace', 8)
     const mouseOverEvent = new MouseEvent('mouseover', { view: window, bubbles: true, cancelable: true } )
     span.dispatchEvent(mouseOverEvent)
     // pause
@@ -528,15 +568,16 @@ function clickEmoji( span, score )
          * 230812 yky Modified - updated another div's parentElement before nextSibling
          * 230821 yky Modified - using classnames to locate the grandparent and button
         */
-        ykAlert( 'Clicking on GreyFace', 5)
+        ykAlert( 'Clicking on GreyFace', 8)
         //var div = span.parentElement.parentElement.parentElement
         //var emo = div.parentElement.parentElement.nextSibling
         //var emoc = emo.firstChild.firstChild.firstChild
 
-        var grandparent = getParentWithClass( span, 'UzMP7' )
+        //var grandparent = getParentWithClass( span, 'UzMP7' ) // 240331 yky Stopped Working
+        var grandparent = getParentWithClass( span, 'message-in' )
         var button = grandparent.querySelector('[aria-label="React"]')
         // var button = grandparent.querySelector('[data-testid="reaction-entry-point"]')
-        if (button == null) ykAlert( 'Cant find the emoji greyface button', 0)
+        if (button == null) ykAlert( 'Cant find the Grey Face Emoji Button', -1)
         else
         {
             button.click()
@@ -551,13 +592,14 @@ function clickEmoji( span, score )
          *       3 = surprised, 4=cry, 5=prayer
          *       "show-more" is the plus
          * 230802 yky Created
+		 * 240331 yky Modified - Because of the aria references, little modifications here.
         */
         var numStandard = reactionEmojis.indexOf( emoji )
         if (numStandard >= 0)
         {
             //var emo = document.querySelector("[data-testid='reactions-option-"+numStandard+"']")
             var emo = document.querySelector("[alt='"+emoji+"']")
-            if (emo == null) ykAlert( 'Cant find the standard emoji ' + emoji + ' button at #' + numStandard, 0)
+            if (emo == null) ykAlert( 'Cant find the standard-set emoji ' + emoji + ' button at #' + numStandard, -1)
             else
             {
                 emo.click()
@@ -565,11 +607,11 @@ function clickEmoji( span, score )
             }
         } else {
             var more = document.querySelector('[aria-label="More reactions"]')
-            if (more == null) ykAlert( 'Cant find the more emoji button', 0)
+            if (more == null) ykAlert( 'Cant find the More Emoji (+) button', -1)
             else
             {
                 more.click()
-                ykAlert( 'Clicked on More Emojis', 5 )
+                ykAlert( 'Clicked on More Emojis', 8 )
                 setTimeout( function () {clickEmoji_ClickMoreReaction( emoji )}, clickDelay*1.5 )
             }
         }
@@ -580,13 +622,14 @@ function clickEmoji( span, score )
          *      There may be issues with emojis down the list which may not be loaded yet.
          * 230823 yky Created
          * 230826 yky Modified - Scrolls through the emojis and calls itself, if it cant load the emojis. Limited to 3 times
+		 * 240331 yky Modified - 
         */
         //let emo = document.querySelector('[data-emoji="'+ emoji +'"]')
         let emo = findEmoji( emoji )
         loadedEmojis++
         if (emo == null)
         {
-            ykAlert( 'Cant find the ' + emoji + ' emoji from the list' , 3)
+            //ykAlert( 'Cant find the ' + emoji + ' emoji from the list' , -1)
             //let animal = preloadEmojis()
             //if ( (animal != null) && ( (loadedEmojis % 3) != 0 ) )
             if ( (loadedEmojis % 3) != 0 )
@@ -595,7 +638,7 @@ function clickEmoji( span, score )
             }
             else
             {
-                ykAlert( 'Tried loading ' + emoji + '. The grid will be stuck open till the next focusChat. #' + loadedEmojis, 0)
+                ykAlert( 'Tried loading ' + emoji + '. The grid will be stuck open till the next focusChat. #' + loadedEmojis, 5)
             }
         }
         else
@@ -609,25 +652,36 @@ function clickEmoji( span, score )
 
     function clickSkinColor( emoji )
     {
-        // 230830 yky Created - Some emojis get to select the skin color. This will run just incase
-        var skins = document.querySelectorAll('li.K0fvq.Iaqxu.FCS6Q')
-        ykAlert( 'Found the skins selector', 5 )
+        /*
+		 * 230830 yky Created - Some emojis get to select the skin color. This will run just incase
+		 * 240331 yky Modified - WA changed the classnames. Trying to get a more generic tag 
+		 *			The skin tone popup appears outside the span. Click on Pick and Element (Ctrl-Shift-C) to locate it
+		 * 			/html/body/div[1]/div/div/span[6]/div/ul/div/div/li[2]
+		 */
+		
+        // var skins = document.querySelectorAll('li.K0fvq.Iaqxu.FCS6Q') // 240331 yky Stopped Working
+        var skins = document.querySelectorAll('[data-animate-dropdown-item="true"]')
+		
+        
         if (skins.length > 0)
         {
             //let skin = skins[ Math.floor(Math.random()*skins.length) ]
             let skin = skins[0] // 230830 yky Always clicking the default yellow. Otherwise hard to search again.
             skin.click()
-            ykAlert( 'Clicked on ' + skin.querySelector('img').alt, 0)
-        }
+            ykAlert( 'Clicked on ' + skin.querySelector('img').alt, 2)
+        } else {
+			ykAlert( 'No Skins found', 5 )
+		}
     }
 
     function preloadEmojis()
     {
         // 230826 yky Created
+		// 240331 yky Didnt Need to change this for this round of WA updates
         let animal = document.querySelector('[title="Animals & Nature"]')
         if (animal == null)
         {
-            ykAlert( 'Emoji grid not loaded.', 0 )
+            ykAlert( 'Emoji grid (Animals) not loaded.', -1 )
             return null
         }
         ykAlert( 'Scrolling through all the emojis: #' + loadedEmojis, 5)
@@ -652,6 +706,7 @@ function clickEmoji( span, score )
         return animal
     }
 }
+	
 function getTranslateY( element )
 {
     // 230827 yky Created. Lots of string mangling
@@ -660,21 +715,28 @@ function getTranslateY( element )
 
 function getLowestGrid()
 {
-    // 230827 yky Created.
+    /*
+	 *	230827 yky Created.
+	 *		Finds the grid of emojis in the popup to find the max Y coords to translate to
+	 *  240331 yky WA changed the title from "Recent Reactions" to "Recent reactions"
+	 */
+	
     //let searchReaction = document.querySelector("._1oIeI.y7k-3")
-    let recentReaction = document.querySelector('[title="Recent Reactions"]')
+    //let recentReaction = document.querySelector('[title="Recent Reactions"]')
+    let recentReaction = document.querySelector('[title="Recent reactions"]')
     if (recentReaction == null)
     {
-        ykAlert( 'Cannot find More Emoji popup. Abort', 0 )
+        ykAlert( 'Cannot find More Emoji popup which shows Recent reactions, etc.', -1 )
         return
     }
 
     //let pointer = document.querySelector('[style="pointer-events: auto;"]')
-    let pointer = getParentWithClass( recentReaction, "_2pWdM" )
+    //let pointer = getParentWithClass( recentReaction, "_2pWdM" )
+    let pointer = recentReaction.parentElement.parentElement.parentElement
     let list = pointer.querySelectorAll("[role='listitem']")
     if (list == null)
     {
-        ykAlert( 'Cannot find Emoji List Items. Abort', 0 )
+        ykAlert( 'Cannot find Emoji List Items to scroll down', -1 )
         return
     } else ykAlert( 'Found ' + list.length + ' rows of emojis', 8 )
     let yMax = 0
@@ -712,10 +774,21 @@ function eventFire(el, etype)
      *   Mainly to click on the chatlist on the left
      *     https://stackoverflow.com/questions/58115835/chrome-console-click-not-working-on-chat-list-in-web-whatsapp
      * 230812 yky  Created. Works!
+	 * 240331 yky  Adding exception catching. 
+	 *		Also waiting for the deprecation of document.createEvent 
      */
-		var evt = document.createEvent("MouseEvents");
-		evt.initMouseEvent(etype, true, true, window,0, 0, 0, 0, 0, false, false, false, false, 0, null);
-		el.dispatchEvent(evt);
+	
+	 try
+		{
+			var evt = document.createEvent("MouseEvents");
+			if (evt == null)
+				ykAlert( "Could not Create MouseEvent for mouse down", -1)
+
+			evt.initMouseEvent(etype, true, true, window,0, 0, 0, 0, 0, false, false, false, false, 0, null);
+			el.dispatchEvent(evt);
+		} catch(err) {
+			ykAlert( err.message, -1 )
+		}
 }
 
 function isEquation( equation )
@@ -736,10 +809,21 @@ function focusNewChat()
      *  230823  yky  Modified - chats 'data-testid=cell-frame-container' changed
      *      last-msg-status changed, need to search by class now
      *  230824  yky  Modified - fixed class name for the last-msg-status to span.p357zi0d
+	 *  240331  yky  Modified - wa changed their classes again 
+	 * 					left pane-side chat items "._199zF._3j691" to "._ak72"
+	 *					combined [aria-labels] for author, message and unread-message
      */
-    //var chats = document.querySelectorAll("[data-testid='cell-frame-container']")
+
+	// Selecting the Left Pane-Side Chat List items. Some of them may be special because unread or double ticked.
+	// /html/body/div[1]/div/div/div[2]/div[3]/div/div[2]/div/div/div/div[11]/div/div/div
+    //var chats = document.querySelectorAll("[data-testid='cell-frame-container']") // 230823 yky Stopped working
     //var chats = document.querySelectorAll("[role='listitem']")
-    var chats = document.querySelectorAll("._199zF._3j691")
+    // var chats = document.querySelectorAll("._199zF._3j691") // 240331 yky Stopped working
+    var chats = document.querySelectorAll("._ak72")
+	if (chats.length == 0)
+		{
+			ykAlert( 'Cant seem to find the Left Pane-Side Chat List!', -1 )
+		}
     var potentials = []
     var priority = []
 
@@ -747,28 +831,45 @@ function focusNewChat()
 
     for ( let chat of chats )
     {
-        let author = chat.querySelector('[aria-label]')
-        if (author != null) author = author.textContent
-        else author = ""
+        let chatDetails = chat.querySelectorAll('[aria-label]')
+		if (chatDetails.length < 2)
+			{
+				author = ""
+				ykAlert( 'Author and Message in Left PaneSide Chat tag wasnt found', 5 )
+			}
+		else
+			{
+		
+			// Selecting the Author (Bold Names in the Chat item). Its not crucial not to have it
+			let author = chatDetails[0]
+			if (author != null) author = author.textContent
 
-        let message = chat.querySelector( "span.p357zi0d" )
-        //let message = chat.querySelector("[data-testid='last-msg-status']")
-        if (message != null)
-        {
-            let msg = message.textContent
-            let isMe = (msg.indexOf("You:") == 0) || (msg.indexOf("You reacted ") == 0)
-            let hasDoubleCheck = chat.querySelector( "[data-icon='status-dblcheck']" ) != null
-            isMe = isMe || hasDoubleCheck
-            let isUnread = chat.className.indexOf("_1KV7I") >= 0
+			//let message = chat.querySelector("[data-testid='last-msg-status']")
+			//let message = chat.querySelector( "span.p357zi0d" ) // 240331 yky Stopped Working
+			let message = chatDetails[1]
+			if (message != null)
+				{
+					let msg = message.textContent
+					let isMe = (msg.indexOf("You:") == 0) || (msg.indexOf("You reacted ") == 0)
+					
+					
+					let hasDoubleCheck = chat.querySelector( "[data-icon='status-dblcheck']" ) != null
+					isMe = isMe || hasDoubleCheck
+					
+					
+					// let isUnread = chat.className.indexOf("_1KV7I") >= 0 // 240331 yky Stopped Working
+					// 240331 yky Using the fact that if there is an unread, it shows up as an aria-label="1 unread message"
+					let isUnread = chatDetails.length == 3
 
-            if (isEquation( msg ))
-            {
-                let item = [chat, author, msg, isMe]
-                //ykAlert( "Slotting in :" + msg )
-                if ((isMe) || (!isUnread)) potentials.push( item )
-                else priority.push( item )
-            }
-        }
+					if (isEquation( msg ))
+					{
+						let item = [chat, author, msg, isMe]
+						//ykAlert( "Slotting in :" + msg )
+						if ((isMe) || (!isUnread)) potentials.push( item )
+						else priority.push( item )
+					}
+				}
+			}
     }
 
     var selected = null
